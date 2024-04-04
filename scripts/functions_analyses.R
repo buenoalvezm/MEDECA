@@ -10,7 +10,7 @@ de_limma_disease <-
     dat <-
       data_wide %>% 
       inner_join(metadata %>% 
-                   select(DAid, Sex, Age, BMI, Disease), by = "DAid") %>% 
+                   select(Sample, Sex, Age, BMI, Disease), by = "Sample") %>% 
       rename(Group = Disease) %>% 
       mutate(Group = ifelse(Group == disease, "1_Case", "0_Control")) 
     
@@ -26,11 +26,10 @@ de_limma_disease <-
     # Make contrast
     contrast <- makeContrasts(Diff = case - control, levels = design)
     
-    # Fit linear model to each protein assay
     dat_fit <- 
       dat %>% 
       select(-Sex, -Age, -BMI, -Group)  %>% 
-      column_to_rownames("DAid") %>% 
+      column_to_rownames("Sample") %>% 
       t()
     
     fit <- lmFit(dat_fit, design = design,  method = "robust", maxit = 10000)

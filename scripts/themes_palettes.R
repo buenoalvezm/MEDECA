@@ -10,6 +10,21 @@ pal_de <-
     "significant up" = "#FF7176",
     "significant down" = "#92C9DA")
 
+pal_cancer <- c("Yes" = "#E16C54", "No" = "#A0CBC7")
+pal_sex <- c("Male" = "#3E4A57", "Female" = "#CEC6B3")
+
+pal_group <- 
+  c("Cancer" = "#E16C54", 
+    "Healthy" = "#BBDABB", 
+    "Autoimmune" = "#E4A6B0", 
+    "Infectious" = "#E3D0A6", 
+    "Inflammatory" = "#7A76A9", 
+    "Other" = "grey")
+
+pal_group_3 <- 
+  c("Cancer" = "#E16C54", 
+    "Healthy" = "#BBDABB",
+    "Other diseases" = "#8A4D6E")
 
 # Levels
 

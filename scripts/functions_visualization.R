@@ -5,7 +5,6 @@ library(embed)
 library(ggbeeswarm)
 library(patchwork)
 library(ggsci)
-library(eulerr)
 library(ggplotify)
 library(pheatmap)
 library(ggridges)
@@ -22,7 +21,7 @@ do_pca <- function(data,
   } else {
     data_w <-
       data |>
-      select(Sample = DAid, Assay, NPX) |>
+      select(Sample, Assay, NPX) |>
       pivot_wider(values_from = NPX,
                   names_from = Assay)
   }
@@ -78,8 +77,7 @@ do_pca <- function(data,
     # PCA plot
     pca_plot <-
       pca_res %>%
-      left_join(meta |> 
-                  rename(Sample = DAid), by = "Sample") %>%
+      left_join(meta, by = "Sample") %>%
       ggplot(aes(PC1, PC2)) +
       geom_point(aes(color = !!sym(variable)), alpha = 0.7, size = 2) +
       labs(color = NULL) +
@@ -114,7 +112,7 @@ do_umap <- function(data,
   } else {
     data_w <-
       data |>
-      select(Sample = DAid, Assay, NPX) |>
+      select(Sample, Assay, NPX) |>
       pivot_wider(values_from = NPX,
                   names_from = Assay)
   }
@@ -146,8 +144,7 @@ do_umap <- function(data,
     # Loadings plot
     umap_plot <-
       umap_res |>
-      left_join(meta |> 
-                  rename(Sample = DAid), by = "Sample") |>
+      left_join(meta, by = "Sample") |>
       ggplot(aes(UMAP1, UMAP2, color = !!sym(variable))) +
       geom_point(alpha = 0.7, size = 2) +
       theme_hpa()

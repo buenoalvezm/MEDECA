@@ -26,9 +26,6 @@ pal_group_3 <-
     "Healthy" = "#BBDABB",
     "Other diseases" = "#8A4D6E")
 
-# Levels
-
-
 # Themes
 theme_hpa <- 
   function(angled = F, axis_x = T, axis_y = T, facet_title = T) {

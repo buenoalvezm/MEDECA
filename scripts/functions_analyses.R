@@ -1,6 +1,10 @@
+# Functions for general analyses
+library(limma)
+library(tidymodels)
 
-# Run differential expression using limma
-de_limma_disease <-
+
+## Run differential expression using limma
+do_limma <-
   function(data_wide, 
            metadata,
            disease,
@@ -54,3 +58,7 @@ de_limma_disease <-
     
     return(DE_res)
   }
+
+do_lasso <- function() {
+  
+}

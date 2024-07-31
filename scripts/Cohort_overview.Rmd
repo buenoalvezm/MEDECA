@@ -551,10 +551,16 @@ prob_medeca <-
   xlab("") +
   theme_hpa()
 
+medeca_de_up <- 
+  medeca_de |> 
+  filter(sig != "not significant") |> 
+  pull(Assay)
+
 ml_medeca$important_proteins |> 
   head(50) |> 
-  mutate(Pan_cancer_marker = ifelse(term %in% pancancer_markers$Protein, "Yes", "No")) |>
-  ggplot(aes(fct_reorder(term, abs(estimate)), abs(estimate), color = Pan_cancer_marker)) +
+  mutate(Pan_cancer_marker = ifelse(term %in% pancancer_markers$Protein, "Yes", "No"),
+         Differentially_expressed = ifelse(term %in% medeca_de_up, "Yes", "No")) |>
+  ggplot(aes(fct_reorder(term, abs(estimate)), abs(estimate), color = Differentially_expressed)) +
   geom_segment(aes(x = fct_reorder(term, abs(estimate)), 
                    xend = fct_reorder(term, abs(estimate)), 
                    y = 0, 
@@ -579,6 +585,7 @@ plot_ml <-
 data |> 
   filter(Sample %in% c(meta_medeca$Sample, meta_allvos$Sample),
          Assay %in% plot_ml$term) |> 
+  mutate(Assay = factor(Assay, levels = plot_ml$term)) |>
   left_join(meta_combined, by = "Sample") |> 
   filter(Cohort == "MEDECA") |> 
   ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
@@ -590,6 +597,17 @@ data |>
 
 ggsave(savepath("top_proteins_ml.pdf"), h = 10, w = 3.5)
 
+
+medeca_de |> 
+  left_join(important_proteins, by = c("Assay" = "term")) |> 
+  mutate(estimate = ifelse(is.na(estimate), 0, estimate)) |> 
+  ggplot(aes(abs(estimate), abs(logFC), color = sig, size = -log10(adj.P.Val))) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay), show.legend = F, size = 4) +
+  scale_color_manual(values = pal_de) +
+  theme_hpa()
+
+ggsave(savepath("ML_DE.pdf"), h = 5, w = 5)
 
 ```
 
@@ -785,6 +803,39 @@ ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
 
 ```
 
+## Markers
+
+```{r}
+
+proteins <- 
+  ml_medeca$important_proteins
+
+
+dat_ml_markers <- 
+  data |> 
+  filter(Sample %in% meta_medeca$Sample,
+         Assay %in% proteins$term)
+
+pca_ml <- 
+  do_pca(data = dat_ml_markers,
+        meta = meta_medeca,
+        wide = F,
+        variable = "Cancer",
+        plots = T)
+
+pca_ml$pca_plot
+
+dat_ml_markers |> 
+  pivot_wider(names_from = Assay,
+              values_from = NPX) |>
+  column_to_rownames("Sample") |> 
+  scale() |> 
+  cor(method = "spearman",
+      use = "complete.obs") |> 
+  pheatmap()
+
+```
+
 ## Multiclass
 
 ```{r}
@@ -807,14 +858,146 @@ multiclass_split <-
 multiclass_train <- training(multiclass_split)
 multiclass_test <- testing(multiclass_split)
 
+multiclass_train <- 
+  medeca_train |> 
+  select(-Cancer) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type), by = "Sample") 
+
+multiclass_test <- 
+  medeca_test |> 
+  select(-Cancer) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type), by = "Sample") 
 
 # Run ML function
 medeca_multiclass <- 
   do_lasso_multiclass(variable = "Disease_type",
-                    multiclass_train, 
-                    multiclass_test) 
+                    train = multiclass_train, 
+                    test = multiclass_test) 
 
 medeca_multiclass
+
+cm |> autoplot(type = "heatmap") +
+  theme_hpa() +
+  theme(axis.ticks = element_blank()) +
+  coord_fixed()
+
+ggsave(savepath("confusion_matrix.pdf"), h = 5, w = 5)
+
+top_multiclass <- 
+  important_proteins |> 
+  #count(class)
+  group_by(class) |> 
+  top_n(25, abs(estimate)) 
+
+cancer <- 
+  top_multiclass |> 
+  filter(class == "Cancer") 
+
+healthy <- 
+  top_multiclass |> 
+  filter(class == "Healthy") 
+
+other <- 
+  top_multiclass |> 
+  filter(class == "Other diseases") 
+
+plot_lollipop(cancer) + theme(legend.position = "none") |
+plot_lollipop(healthy) + theme(legend.position = "none") |
+plot_lollipop(other) + theme(legend.position = "none")
+
+ggsave(savepath("lollipop_multiclass.png"), h = 5, w = 9)
+
+
+
+plot_lollipop <- function(protein_list) {
+ 
+   protein_list |> 
+    mutate(Pan_cancer_marker = ifelse(term %in% pancancer_markers$Protein, "Yes", "No")) |>
+    ggplot(aes(fct_reorder(term, abs(estimate)), abs(estimate), color = Pan_cancer_marker)) +
+    geom_segment(aes(x = fct_reorder(term, abs(estimate)), 
+                     xend = fct_reorder(term, abs(estimate)), 
+                     y = 0, 
+                     yend = abs(estimate))) +
+    geom_point() + 
+    coord_flip() +
+    theme_hpa(angled = T) +
+    xlab("") +
+    ylab("Model estimate") +
+    scale_color_manual(values = c("grey90", "grey30")) +
+    theme(axis.text.y = element_text(size = 9),
+          axis.text.x = element_text(size = 9),
+          axis.ticks.y = element_blank(),
+          legend.position = "top")
+}
+
+
+predictions_multiclass |> 
+  select(Prob_cancer = .pred_Cancer,
+         Prob_healthY = .pred_Healthy,
+         Prob_other = `.pred_Other diseases`,
+         Class) |> 
+  pivot_longer(cols = -Class,
+               names_to = "Class_prob",
+               values_to = "Probability") |> 
+  ggplot(aes(Class, Probability, fill = Class, color = Class)) +
+  geom_quasirandom() +
+  geom_violin(alpha = 0.3) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.3,
+               colour = "grey20",
+               show.legend = F) +
+  facet_wrap(~Class_prob) +
+  scale_fill_manual(values = pal_group_3) +
+  scale_color_manual(values = pal_group_3) +
+  theme_hpa(angled = T)
+
+
+
+
+proteins <- 
+  top_multiclass |> 
+  group_by(class) |> 
+  top_n(1, abs(estimate))
+
+
+data |> 
+  filter(Sample %in% meta_medeca$Sample,
+         Assay %in% proteins$term) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type, Other_disease), by = "Sample") |> 
+  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease)) |>
+  filter(Other_disease != "Other diseases") |> 
+  mutate(Disease_type = ifelse(Other_disease == "Inflammatory", "Other diseases", Disease_type)) |> 
+  mutate(Other_disease = factor(Other_disease, levels = c("Cancer", "Healthy", 
+                                                          "Autoimmune", "Infectious",
+                                                          "Inflammatory", "Other")),
+         Assay = factor(Assay, levels = c("RRM2", "SERPINB5", "FGF5"))) |> 
+  ggplot(aes(Other_disease, NPX, color = Disease_type, fill = Disease_type)) +
+  geom_rain(size = 0.5) + 
+  stat_summary(fun = "mean",
+               geom = "point", 
+               # width = 0.3,
+               size = 0.5,
+               colour = "grey20",
+               show.legend = F) +
+#  geom_quasirandom(alpha = 0.8, size = 1, show.legend = F) +
+ # geom_boxplot(alpha = 0.5, outlier.color = NA, show.legend = F) +
+  facet_wrap(~Assay, scales = "free_y", nrow = 1) +
+  scale_color_manual(values = pal_group_3) +
+  scale_fill_manual(values = pal_group_3) +
+  theme_hpa(angled = T)
+
+ggsave(savepath("proteins_multiclass.pdf"), h = 4, w = 9)
+
+#ADAM23
+
+predictions_multiclass
+
+cm
+
 
 #################
 multiclass_recipe <- 
@@ -1082,6 +1265,24 @@ selected_samples <-
          Sample != "110") |> #Lymphoma + prostate cancer
   select(-Value)
 
+
+selected_samples_2 <- 
+  meta_medeca |> 
+  select(Sample, 
+         Myelom, 
+         Lymfom,
+         #Colorectal, 
+         #Prostate,
+         Lung,
+         `Ovarian or tubar`, 
+         Breast) |> 
+  pivot_longer(cols = -Sample,
+               names_to = "Cancer",
+               values_to = "Value") |> 
+  filter(Value == 1,
+         Sample != "110") |> #Lymphoma + prostate cancer
+  select(-Value)
+
 selected_samples |> 
   count(Cancer)
 
@@ -1096,13 +1297,13 @@ medeca_healthy <-
 
 groups <- 
   c("Lymfom",
-                                            "Myelom", 
-                                            "Lung",
-                                            "Neuroendocrine tumors",
-                                            "Pancreas or gall bladder or bile duct",
-                                            "Breast",
-                                            "Ovarian or tubar",
-                                            "Healthy")
+    "Myelom", 
+    "Lung",
+    "Neuroendocrine tumors",
+    "Pancreas or gall bladder or bile duct",
+    "Breast",
+    "Ovarian or tubar",
+    "Healthy")
 
 data |> 
   filter(Sample %in% c(selected_samples$Sample, medeca_healthy$Sample),
@@ -1130,6 +1331,56 @@ pal_groups <- c("#08585A",
                 "#603479",
                 "grey")
 names(pal_groups) <- groups
+
+
+pal_groups_2 <- c("Lymfom" = "#08585A",
+                "Myelom" = "#66C2A5",
+                "Lung" = "#ADC74F",
+                #"Colorectal" = "",
+                #"Prostate" = "",
+                "Breast" = "#E8A29A",  
+                "Ovarian tubar" = "#603479")
+
+heatmap_pal <-
+  brewer.pal(9, name = "YlOrRd") %>% 
+  colorRampPalette()
+
+selected_pancancer_markers <- 
+  pancancer_markers |> 
+  filter(Cancer %in% c("DLBCL",
+                       "Myeloma",
+                       "Lung",
+                       "Breast",
+                       "Ovarian"))
+
+data_selected <- 
+  data |> 
+  filter(Sample %in% selected_samples_2$Sample,
+         Assay %in% selected_pancancer_markers$Protein) 
+
+selected_umap <- 
+  do_umap(data = data_selected,
+        meta = selected_samples_2,
+        variable = "Cancer",
+        wide = F,
+        impute = T,
+        plots = T)
+selected_umap$pca_plot
+
+
+data_selected |> 
+  group_by(Assay) |> 
+  mutate(NPX = scales::rescale(NPX, to = c(0,1))) |> 
+  pivot_wider(names_from = "Assay",
+              values_from = "NPX") |> 
+  column_to_rownames("Sample") |> 
+  #scale() |> 
+  pheatmap(show_rownames = F,
+           color = heatmap_pal(100),
+           #clustering_method = "ward.D2",
+           annotation_row = selected_samples |> column_to_rownames("Sample"),
+           annotation_colors = list(Cancer = pal_groups))
+
 ```
 
 

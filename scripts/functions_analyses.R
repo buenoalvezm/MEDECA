@@ -335,9 +335,9 @@ do_lasso_multiclass <-
     
 
     # ROC curve
-    roc <- 
-      predictions |>
-      roc_curve(truth = Disease, paste0(".pred_0_", disease)) 
+    # roc <- 
+    #   predictions_multiclass |>
+    #   roc_curve(Class, .pred_Cancer) 
     
     return(list("penalty" = best_multiclass,
                 "multiclass_model" = multiclass_res,
@@ -348,7 +348,7 @@ do_lasso_multiclass <-
                 "predictions" = predictions_multiclass,
                 "performance" = performance,
                 "confusion_matrix" = cm,
-                "roc_curve" = roc, 
+                #"roc_curve" = roc, 
                 "important_proteins" = important_proteins))
   }
 

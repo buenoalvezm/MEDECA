@@ -338,12 +338,19 @@ ggsave(savepath("MEDECA_ALLVOS_volcano.pdf"), h = 4, w = 4)
 proteins <- 
   medeca_de |> 
   left_join(allvos_de |> 
-              select(Assay, sig_ALLVOS = sig, FC_ALLVOS = logFC)) |> 
+              select(Assay, 
+                     sig_ALLVOS = sig, 
+                     FC_ALLVOS = logFC,
+                     pval_ALLVOS = adj.P.Val)) |> 
   mutate(Significant = case_when(sig == "significant up" & sig_ALLVOS == "significant up" ~ "Upregulated in both",
                                  sig == "significant down" & sig_ALLVOS == "significant down" ~ "Downregulated in both",
                                    TRUE ~ "Not significant or discordant")) |> 
   filter(Significant == "Upregulated in both") |> 
-  select(Assay, FC_MEDECA = logFC, FC_ALLVOS) 
+  select(Assay, 
+         FC_MEDECA = logFC, 
+         FC_ALLVOS,
+         pval_MEDECA = adj.P.Val,
+         pval_ALLVOS) 
 
 # Beeswarms
 library("ggrain")
@@ -410,13 +417,86 @@ pca_reduced <-
 pca_reduced$pca_plot
 ```
 
+## Functional characterization
+
+```{r}
+
+proteins_func <- 
+  medeca_de |> 
+  select(Assay, logFC, adj.P.Val) |> 
+  mutate(Cohort = "MEDECA") |> 
+  bind_rows(allvos_de |> 
+              select(Assay, logFC, adj.P.Val) |> 
+              mutate(Cohort = "ALLVOS")) |> 
+  filter(Assay %in% proteins$Assay)
+
+
+#hpa <- 
+library(paletteer)
+hpa <- import_df("data/hpa/proteinatlas.tsv")
+pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
+
+
+|>
+
+    View()
+
+secreted <- 
+  hpa |> 
+  distinct(Secretome.location) |> 
+  filter(grepl("Secreted", Secretome.location)) |> 
+  pull()
+
+part_2 <- 
+  hpa |> 
+  filter(Gene %in% proteins$Assay) |> 
+  select(Gene,
+         RNA.tissue.specificity, 
+         Secretome.location,
+         Secretome.function,
+         Biological.process,
+         Molecular.function,
+         Disease.involvement) |> 
+  mutate(Pan_cancer_maker = ifelse(Gene %in% pancancer_markers$Protein, "Yes", "No"),
+         Secreted = ifelse(Secretome.location %in% secreted, "Yes", "No"),
+         Tissue_enriched = ifelse(RNA.tissue.specificity == "Tissue enriched", "Yes", "No"),
+         Cancer_related = case_when(grepl("Cancer",Disease.involvement) ~ "Yes",
+                                    grepl("Proto-oncogene",Disease.involvement) ~ "Yes",
+                                    T ~ "No"),
+         Gene = factor(Gene, levels = rev(proteins$Assay))) |> 
+  select(Gene, Secreted, Tissue_enriched, Cancer_related, Pan_cancer_maker) |> 
+  pivot_longer(cols = -Gene, names_to = "Type", values_to = "Value") |> 
+  ggplot(aes(Type, Gene, fill = Value)) +
+  geom_tile(color = "white") +
+  coord_fixed() +
+  scale_fill_manual(values = c("grey90", "grey30")) +
+  xlab("") +
+  theme_hpa(angled = T, axis_y = F)
+
+
+pal_red <- rev(colorRampPalette(brewer.pal(6, "Reds"))(10))
+part_1 <- 
+  proteins_func |> 
+  mutate(Assay= factor(Assay, levels = rev(proteins$Assay)),
+         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
+  ggplot(aes(Cohort, Assay, color = logFC, size = -log10(adj.P.Val))) +
+  geom_point() +
+  scale_color_paletteer_c(palette = "ggthemes::Red") +
+  theme_hpa(angled = T) +
+  theme(axis.ticks.y = element_blank(),
+        legend.position = "left") +
+  ylab("") +
+  xlab("")
+
+part_1 + part_2
+ggsave(savepath("proteins_functional_characterization.pdf"), h = 12, w = 6)
+```
 
 
 # Machine learning 
 
 ## MEDECA
 
-### Data preparation
 
 ```{r}
 # Prepare ML data
@@ -447,6 +527,69 @@ ml_medeca <-
 
 saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
 
+ml_medeca$important_proteins |> View()
+
+
+prob_medeca <- 
+  ml_medeca$predictions |> 
+  rename(Probability_case = .pred_Case) |> 
+  ggplot(aes(Class, Probability_case, color = Class, fill = Class)) +
+  geom_violin(alpha = 0.3,
+              show.legend = F) +
+  geom_quasirandom(show.legend = F) +
+  geom_hline(yintercept = 0.5, 
+             linetype = "dashed", 
+             color = "grey") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.3,
+               colour = "grey20",
+               show.legend = F) +
+  scale_fill_manual(values = unname(pal_cancer)) +
+  scale_color_manual(values = unname(pal_cancer)) +      
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
+  xlab("") +
+  theme_hpa()
+
+ml_medeca$important_proteins |> 
+  head(50) |> 
+  mutate(Pan_cancer_marker = ifelse(term %in% pancancer_markers$Protein, "Yes", "No")) |>
+  ggplot(aes(fct_reorder(term, abs(estimate)), abs(estimate), color = Pan_cancer_marker)) +
+  geom_segment(aes(x = fct_reorder(term, abs(estimate)), 
+                   xend = fct_reorder(term, abs(estimate)), 
+                   y = 0, 
+                   yend = abs(estimate))) +
+  geom_point() + 
+  coord_flip() +
+  theme_hpa(angled = T) +
+  xlab("") +
+  ylab("Model estimate") +
+  scale_color_manual(values = c("grey90", "grey30")) +
+  theme(axis.text.y = element_text(size = 8),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+
+ggsave(savepath("top_ml_markers.pdf"), h = 8, w = 2.5)
+ 
+
+plot_ml <- 
+  ml_medeca$important_proteins |> 
+  head(5)
+
+data |> 
+  filter(Sample %in% c(meta_medeca$Sample, meta_allvos$Sample),
+         Assay %in% plot_ml$term) |> 
+  left_join(meta_combined, by = "Sample") |> 
+  filter(Cohort == "MEDECA") |> 
+  ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
+  geom_rain(alpha = 0.5) +
+  facet_grid(Assay~Cohort, scales = "free") +
+  scale_color_manual(values = pal_cancer) +
+  scale_fill_manual(values = pal_cancer) +
+  theme_hpa()
+
+ggsave(savepath("top_proteins_ml.pdf"), h = 10, w = 3.5)
+
 
 ```
 
@@ -455,28 +598,137 @@ saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
 
 ```{r}
 # Prepare ALLVOS data
-medeca_test
-
-allvos_data <- 
+ml_data_allvos <- 
   data |> 
-  filter(Sample %in% as.character(meta_allvos$Sample)) |> 
-  left_join(meta_allvos |> 
-              mutate(Sample = as.character(Sample)) |> 
-              select(Sample, Cancer), by = "Sample") |> 
-  mutate(Disease = ifelse(Cancer == "Yes", "0_Cancer", "1_Control")) |> 
-  select(Sample, Disease, Assay, NPX) |> 
+  filter(Sample %in% meta_allvos$Sample) |> 
+  select(Sample, Assay, NPX) |> 
   pivot_wider(names_from = Assay,
-              values_from = NPX) 
+              values_from = NPX) |> 
+  left_join(meta_allvos |> 
+              select(Sample, Cancer), by = "Sample") |> 
+  mutate(Class = case_when(Cancer == "Yes" ~ "Case",
+                           Cancer!= "Yes" ~ "Control")) |> 
+  mutate(Class = factor(Class)) |> 
+  select(-Cancer)
 
+allvos_fit <- predict(ml_medeca$final_fit|> extract_workflow(), 
+                      ml_data_allvos, 
+                      type = "prob")
+
+allvos_dat <- 
+  allvos_fit  |> 
+  mutate(Pred = ifelse(.pred_Case > 0.5, "Case", "Control"),
+         Cancer = ml_data_allvos$Class) 
+
+
+
+prob_allvos <- 
+  allvos_fit |> 
+  rename(Probability_case = .pred_Case) |> 
+  mutate(Class = ml_data_allvos$Class) |>
+  ggplot(aes(Class, Probability_case, color = Class, fill = Class)) +
+  geom_violin(alpha = 0.3) +
+  geom_quasirandom() +
+  geom_hline(yintercept = 0.5, 
+             linetype = "dashed", 
+             color = "grey") +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.3,
+               colour = "grey20",
+               show.legend = F) +
+  scale_fill_manual(values = unname(pal_cancer)) +
+  scale_color_manual(values = unname(pal_cancer)) +
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
+  xlab("") +
+  theme_hpa(axis_y = F)
+  
+prob_medeca + prob_allvos
+ggsave(savepath("probabilities_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
+
+filter(Cancer == Pred)
 
 # This will automatically `bake()` the recipe on `testing`,
-allvos_fit <- predict(final_glmnet, allvos_data)
-allvos_fit <- 
-  last_fit(final_glmnet, allvos_data)
+allvos_fit <- fit(ml_medeca$final_workflow, ml_data_allvos)
+
+
+
+
+# ROC curves
+auc_allvos <- 
+  allvos_dat |> 
+  roc_auc(truth = Cancer, .pred_Case)
+
+auc_medeca <- 
+  ml_medeca$performance 
+
+ tiles <-
+  tibble(specificity = c(0.2,0.2),
+         sensitivity = c(0.3,0.1),
+         Cohort = c("Discovery", "Replication"),
+         AUC = c(round(auc_medeca$.estimate,2),
+                 round(auc_allvos$.estimate,2)))
+ 
+ 
+ml_medeca$roc_curve |> 
+  mutate(Cohort = "Discovery") |> 
+  bind_rows(allvos_dat |> 
+  roc_curve(truth = Cancer, .pred_Case) |> 
+  mutate(Cohort = "Replication")) |> 
+   ggplot(aes(
+    x = 1 - specificity,
+    y = sensitivity,
+    group = Cohort
+  )) +
+  geom_path(aes(color = Cohort), size = 1) +
+  geom_segment(aes(
+    x = 0,
+    y = 0,
+    xend = 1,
+    yend = 1
+  ),
+  colour = 'grey',
+  linetype = 'dotdash') +
+  geom_tile(
+    width = 0.2, 
+    height = 0.2,
+    data = tiles,
+    aes(fill = Cohort),
+    #alpha = 0.7,
+    show.legend = F
+  ) +
+  geom_text(
+    data = tiles,
+    aes(label = AUC),
+    size = 3,
+    color = "white",
+    show.legend = F
+  ) +
+  geom_text(
+    label = "AUC",
+    x = 0.8,
+    y = 0.5,
+    size = 3,
+    inherit.aes = F
+  ) +  # Fixed the warning
+  scale_color_manual(values = c("grey40", "grey70")) +
+  scale_fill_manual(values = c("grey40", "grey70")) +
+  scale_x_continuous(breaks = c(0, 1)) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  theme_hpa() +
+  coord_fixed() +
+  theme(legend.position = "top")
+
+ggsave(savepath("ROC_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
+
+##########
+
+allvos_fit_2 <- last_fit(ml_medeca$final_glmnet, ml_data_allvos)
+allvos_fit_2 <- predict(ml_medeca$final_workflow |> extract_workflow(), ml_data_allvos, type = "prob")
 
 # ROC curve
 medeca_predictions <- 
-  final_glmnet_fit |> 
+  allvos_fit |> 
   collect_predictions() 
 
 auc <- 
@@ -533,82 +785,38 @@ ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
 
 ```
 
-# Comparison DE / ML
-
-```{r}
-
-medeca_de |> 
-  left_join(important_proteins, by = c("Assay" = "term")) |> 
-  filter(!is.na(estimate)) |> 
-  mutate(Type = case_when(estimate > 0 & logFC > 0 ~ "Both up",
-                          estimate < 0 & logFC < 0 ~ "Both down",
-                          T ~ "Different sign")) |> 
-  ggplot(aes(estimate, logFC, color = Type)) +
-  geom_vline(xintercept = 0, lty = "dashed", color = "grey") +
-  geom_hline(yintercept = 0, lty = "dashed", color = "grey") +
-  geom_point() +
-  geom_text_repel(aes(label = Assay)) +
-  theme_hpa() +
-  ggtitle("Protein importance VS fold change - MEDECA")
-
-
-
-```
-
 ## Multiclass
 
 ```{r}
 # Prepare ML data
 multiclass_data <- 
   data |> 
-  filter(Sample %in% as.character(meta_medeca$Sample)) |> 
-  left_join(meta_medeca |> 
-              mutate(Sample = as.character(Sample), 
-                      Disease_type = ifelse(Disease_type == "Other diseases", Other_disease, Disease_type)) |> 
-              filter(Disease_type %in% c("Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other", "Cancer")) |> 
-              select(Sample, Disease = Disease_type), by = "Sample") |>
-  select(Sample, Disease, Assay, NPX) |> 
-  filter(Disease != "Other") |> 
+  filter(Sample %in% meta_medeca$Sample) |> 
   pivot_wider(names_from = Assay,
-              values_from = NPX) 
+              values_from = NPX) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type), by = "Sample") 
+  
 
 # Split data 
 set.seed(213)
 multiclass_split <-
   multiclass_data |> 
-  initial_split(prop = 0.7, strata = Disease)
+  initial_split(prop = 0.7, strata = Disease_type)
 
 multiclass_train <- training(multiclass_split)
 multiclass_test <- testing(multiclass_split)
 
-# Barplot
-multiclass_train |> 
-  select(Sample, Disease) |> 
-  mutate(Set = "Train") |> 
-  bind_rows(multiclass_test |> 
-              select(Sample, Disease) |> 
-              mutate(Set = "Test")) |> 
-  group_by(Disease, Set) |> 
-  count() |> 
-  group_by(Disease) |> 
-  mutate(total_n = sum(n)) |> 
-  mutate(Set = factor(Set, levels = c("Test", "Train"))) |>
-  ungroup() |> 
-  group_by(Disease) |> 
-  arrange(Disease, Set) |>
-  mutate(c = cumsum(n)) |> 
-  ungroup() |> 
-  arrange(Disease, Set) |> 
-  ggplot(aes(Disease, n, fill = (Set))) +
-  geom_col() +
-  geom_text(aes(label = n, y = total_n - c), vjust = -0.5, fontface = "bold") +
-  scale_fill_manual(values = c("#AF91A8", "#FDC593")) +
-  theme_hpa(angled = T) +
-  ggtitle("Samples for machine learning - MEDECA") +
-  xlab("Class")
 
-ggsave(savepath("disease_split.png"), h = 6, w = 4)
+# Run ML function
+medeca_multiclass <- 
+  do_lasso_multiclass(variable = "Disease_type",
+                    multiclass_train, 
+                    multiclass_test) 
 
+medeca_multiclass
+
+#################
 multiclass_recipe <- 
   recipe(Disease ~ ., data = multiclass_train) |> 
   update_role(Sample, new_role = "id") |> 
@@ -849,6 +1057,103 @@ data |>
 ggsave(savepath("top10_important_proteins_multiclass.png"), h = 7, w = 17)
 ```
 
+# Specific cancers
+
+```{r}
+meta_medeca |> 
+  colnames()
+
+selected_samples <- 
+  meta_medeca |> 
+  select(Sample, 
+         Myelom, 
+         Lymfom,
+         #Colorectal, 
+         Lung,
+         `Ovarian or tubar`, 
+         Breast, 
+         #Prostate,
+         `Pancreas or gall bladder or bile duct`,
+         `Neuroendocrine tumors`) |> 
+  pivot_longer(cols = -Sample,
+               names_to = "Cancer",
+               values_to = "Value") |> 
+  filter(Value == 1,
+         Sample != "110") |> #Lymphoma + prostate cancer
+  select(-Value)
+
+selected_samples |> 
+  count(Cancer)
+
+selected_samples
+
+selected_assays <- c("PAEP", "PRTG", "CEACAM5",
+                     "CXCL9", "CNTN5")
+
+medeca_healthy <- 
+  meta_medeca |> 
+  filter(Disease_type == "Healthy")
+
+groups <- 
+  c("Lymfom",
+                                            "Myelom", 
+                                            "Lung",
+                                            "Neuroendocrine tumors",
+                                            "Pancreas or gall bladder or bile duct",
+                                            "Breast",
+                                            "Ovarian or tubar",
+                                            "Healthy")
+
+data |> 
+  filter(Sample %in% c(selected_samples$Sample, medeca_healthy$Sample),
+         Assay %in% selected_assays) |> 
+  left_join(selected_samples, by = "Sample") |> 
+  mutate(Cancer = ifelse(is.na(Cancer), "Healthy", Cancer),
+         Cancer = factor(Cancer, levels = groups)) |> 
+  ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
+  geom_quasirandom(alpha = 0.8, size = 1) +
+  geom_boxplot(alpha = 0.5, outlier.color = NA) +
+  facet_wrap(~Assay, scales = "free_y", nrow = 1) +
+  scale_color_manual(values = pal_groups) +
+  scale_fill_manual(values = pal_groups) +
+  theme_hpa(angled = T,
+            axis_x = F)
+
+
+ggsave(savepath("examples_pan_cancer.pdf"), h = 3, w = 12)
+pal_groups <- c("#08585A",
+                "#66C2A5",
+                "#ADC74F",
+                "#FDB36A",
+                "#D7485A",
+                "#E8A29A",  
+                "#603479",
+                "grey")
+names(pal_groups) <- groups
+```
+
+
+# Comparison DE / ML
+
+```{r}
+
+medeca_de |> 
+  left_join(important_proteins, by = c("Assay" = "term")) |> 
+  filter(!is.na(estimate)) |> 
+  mutate(Type = case_when(estimate > 0 & logFC > 0 ~ "Both up",
+                          estimate < 0 & logFC < 0 ~ "Both down",
+                          T ~ "Different sign")) |> 
+  ggplot(aes(estimate, logFC, color = Type)) +
+  geom_vline(xintercept = 0, lty = "dashed", color = "grey") +
+  geom_hline(yintercept = 0, lty = "dashed", color = "grey") +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa() +
+  ggtitle("Protein importance VS fold change - MEDECA")
+
+
+
+```
 
 # Pan-cancer markers
 
@@ -1163,896 +1468,6 @@ ggsave(savepath("top10_important_proteins.png"), h = 7, w = 17)
 
 ```
 
-# Contaminant analyses
-
-```{r}
-
-contaminants <- read_xlsx("data/Polymer contaminant Metabolomics MEDECA.xlsx")
-
-contaminants |> 
-  filter(`MEDECA #` %in% meta_medeca$Sample) |> 
-  left_join(meta_medeca |> 
-              select(Sample, Cancer), by = c(`MEDECA #` = "Sample")) |> 
-  group_by(Cancer) |> 
-  count(`Polymer contaminant?`) |> 
-  ungroup() |> 
-  group_by(`Polymer contaminant?`) |> 
-  mutate(total_n = sum(n)) |> 
-  ggplot(aes(`Polymer contaminant?`, n, fill = Cancer)) +
-  geom_col() +
-  geom_text(aes(label = total_n, y = total_n), vjust = -0.5) +
-  scale_fill_manual(values = pal_cancer) +
-  theme_hpa()
-
-ggsave(savepath("contaminant_n_cancer.png"), h = 4.5, w = 3)
-
-```
-
-## Differential expression
-
-### Seperate
-
-```{r}
-
-contaminant_meta <- 
-  contaminants |> 
-  rename(Sample = `MEDECA #`) |> 
-  filter(Sample %in% meta_medeca$Sample) |> 
-  left_join(meta_medeca |> 
-              select(Sample, Cancer), by = "Sample") 
-
-# Cancer yes
-contaminant_meta_cancer <- 
-  contaminant_meta |>
-  filter(Cancer == "Yes") |> 
-  mutate(Disease = ifelse(`Polymer contaminant?` == "Y", "Contaminant", "Control")) |> 
-  select(Sample, Disease) |> 
-  mutate(Sex = NA, 
-         Age = NA,
-         BMI = NA) |> 
-  mutate(Sample = as.character(Sample))
-  
-data_contaminants_cancer <- 
-  data |> 
-  filter(Sample %in% contaminant_meta_cancer$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) 
- 
-contaminant_cancer_de <-
-  de_limma_disease(data_wide = data_contaminants_cancer, 
-                   metadata = contaminant_meta_cancer,
-                   disease = "Contaminant",
-                   correct = F) |> 
-  mutate(sig = case_when(adj.P.Val < 0.05 & logFC < -0.5 ~ "significant down",
-                         adj.P.Val < 0.05 & logFC > 0.5 ~ "significant up", 
-                         T ~ "not significant")) 
-
-volcano_contaminant_cancer <- plot_volcano(contaminant_cancer_de) + ggtitle("Cancer samples")
-
-# Cancer no
-contaminant_meta_no_cancer <- 
-  contaminant_meta |>
-  filter(Cancer == "No") |> 
-  mutate(Disease = ifelse(`Polymer contaminant?` == "Y", "Contaminant", "Control")) |> 
-  select(Sample, Disease) |> 
-  mutate(Sex = NA, 
-         Age = NA,
-         BMI = NA) |> 
-  mutate(Sample = as.character(Sample))
-  
-data_contaminants_no_cancer <- 
-  data |> 
-  filter(Sample %in% contaminant_meta_no_cancer$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) 
- 
-contaminant_no_cancer_de <-
-  de_limma_disease(data_wide = data_contaminants_no_cancer, 
-                   metadata = contaminant_meta_no_cancer,
-                   disease = "Contaminant",
-                   correct = F) |> 
-  mutate(sig = case_when(adj.P.Val < 0.05 & logFC < -0.5 ~ "significant down",
-                         adj.P.Val < 0.05 & logFC > 0.5 ~ "significant up", 
-                         T ~ "not significant")) 
-
-volcano_contaminant_no_cancer <- plot_volcano(contaminant_no_cancer_de) + ggtitle("Non-cancer samples")
-
-# Volcanos
-volcano_contaminant_cancer + volcano_contaminant_no_cancer
-ggsave(savepath("volcanos_contaminant.png"), h = 5, w = 10)
-
-# Examples
-top_10_noncancer <- 
-  contaminant_no_cancer_de |> 
-  head(10)
-
-data |> 
-  filter(Assay %in% top_10_noncancer$Assay,
-         Sample %in% contaminant_meta$Sample) |> 
-  left_join(contaminant_meta |> 
-              mutate(Sample = as.character(Sample)), by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = top_10_noncancer$Assay)) |> 
-  ggplot(aes(`Polymer contaminant?`, NPX, fill = Cancer, color = Cancer)) + 
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cancer~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = pal_cancer) + 
-  scale_fill_manual(values = pal_cancer) + 
-  theme_hpa() +
-  ggtitle("Top 10 significant proteins - Non-cancer samples")
-
-ggsave(savepath("top10_noncancer.png"), h = 5, w = 10)
-
-top_10_cancer <- 
-  contaminant_cancer_de |> 
-  head(10)
-
-data |> 
-  filter(Assay %in% top_10_cancer$Assay,
-         Sample %in% contaminant_meta$Sample) |> 
-  left_join(contaminant_meta |> 
-              mutate(Sample = as.character(Sample)), by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = top_10_cancer$Assay)) |> 
-  ggplot(aes(`Polymer contaminant?`, NPX, fill = Cancer, color = Cancer)) + 
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cancer~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = pal_cancer) + 
-  scale_fill_manual(values = pal_cancer) + 
-  theme_hpa() +
-  ggtitle("Top 10 significant proteins - Non-cancer samples")
-
-ggsave(savepath("top10_ncancer.png"), h = 5, w = 10)
-
-```
-
-### Corected by cancer
-
-```{r}
-
-contaminant_meta <- 
-  contaminants |> 
-  rename(Sample = `MEDECA #`) |> 
-  filter(Sample %in% meta_medeca$Sample) |> 
-  left_join(meta_medeca |> 
-              select(Sample, Cancer, Sex), by = "Sample") 
-
-# Cancer yes
-metadata <- 
-  contaminant_meta |>
-  mutate(Disease = ifelse(`Polymer contaminant?` == "Y", "Contaminant", "Control")) |> 
-  select(Sample, Disease, Cancer, Sex) |> 
-  mutate(Sample = as.character(Sample))
-
-data_wide <- 
-  data |> 
-  filter(Sample %in% metadata$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) 
-
-dat <-
-  data_wide %>% 
-  inner_join(metadata %>% 
-               select(Sample, Sex, Cancer, Disease), by = "Sample") %>% 
-  rename(Group = Disease)
-
-# Design a model - add Group, and Sex, Age, BMI
-
-design <- model.matrix(~0 + as.factor(dat$Group) + as.factor(dat$Cancer) + dat$Sex)
-colnames(design) <- c("control", "case",  "Cancer", "Sex") 
-
-# Make contrast
-contrast <- makeContrasts(Diff = case - control, levels = design)
-
-dat_fit <- 
-  dat %>% 
-  select(-Sex, -Cancer, -Group)  %>% 
-  column_to_rownames("Sample") %>% 
-  t()
-
-fit <- lmFit(dat_fit, design = design,  method = "robust", maxit = 10000)
-
-# Apply contrast
-contrast_fit <- contrasts.fit(fit, contrast)
-
-# Apply empirical Bayes smoothing to the SE
-ebays_fit <- eBayes(contrast_fit)
-
-# Extract DE results
-DE_results <-
-  topTable(ebays_fit,
-           n = nrow(ebays_fit$p.value), 
-           adjust.method = "fdr", 
-           confint = TRUE)
-
-DE_res <- 
-  DE_results %>% 
-  as_tibble(rownames = "Assay") %>% 
-  mutate(sig = case_when(adj.P.Val < 0.05 & logFC < -0.5 ~ "significant down",
-                         adj.P.Val < 0.05 & logFC > 0.5 ~ "significant up", 
-                         T ~ "not significant")) |> 
-  arrange(adj.P.Val)
-  
-plot_volcano(DE_res) + ggtitle("Contaminant - corrected by cancer, sex")
-
-ggsave(savepath("contraminant_cancer_sex.png"), h = 6, w = 6)
-
-
-top_10_cancer <- 
-  DE_res |> 
-  head(10)
-
-data |> 
-  filter(Assay %in% top_10_cancer$Assay,
-         Sample %in% contaminant_meta$Sample) |> 
-  left_join(contaminant_meta |> 
-              mutate(Sample = as.character(Sample)), by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = top_10_cancer$Assay)) |> 
-  ggplot(aes(`Polymer contaminant?`, NPX, fill = Cancer, color = Cancer)) + 
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cancer~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = pal_cancer) + 
-  scale_fill_manual(values = pal_cancer) + 
-  theme_hpa() +
-  ggtitle("Top 10 significant proteins - Non-cancer samples")
-
-ggsave(savepath("top10_corrected.png"), h = 5, w = 10)
-
-```
-
-### Cancer corrected by contaminant
-
-```{r}
-metadata <- 
-  contaminant_meta |>
-  mutate(Disease = Cancer) |> 
-  select(Sample, Disease, Contaminant = `Polymer contaminant?`) |> 
-  mutate(Sample = as.character(Sample))
-
-data_wide <- 
-  data |> 
-  filter(Sample %in% metadata$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) 
-
-dat <-
-  data_wide %>% 
-  inner_join(metadata %>% 
-               select(Sample, Contaminant, Disease), by = "Sample") %>% 
-  rename(Group = Disease)
-
-# Design a model - add Group, and Sex, Age, BMI
-
-design <- model.matrix(~0 + as.factor(dat$Group) + as.factor(dat$Contaminant))
-colnames(design) <- c("control", "case",  "Contaminant") 
-
-# Make contrast
-contrast <- makeContrasts(Diff = case - control, levels = design)
-
-dat_fit <- 
-  dat %>% 
-  select(-Contaminant, -Group)  %>% 
-  column_to_rownames("Sample") %>% 
-  t()
-
-fit <- lmFit(dat_fit, design = design,  method = "robust", maxit = 10000)
-
-# Apply contrast
-contrast_fit <- contrasts.fit(fit, contrast)
-
-# Apply empirical Bayes smoothing to the SE
-ebays_fit <- eBayes(contrast_fit)
-
-# Extract DE results
-DE_results <-
-  topTable(ebays_fit,
-           n = nrow(ebays_fit$p.value), 
-           adjust.method = "fdr", 
-           confint = TRUE)
-
-DE_res <- 
-  DE_results %>% 
-  as_tibble(rownames = "Assay") %>% 
-  mutate(sig = case_when(adj.P.Val < 0.05 & logFC < -0.5 ~ "significant down",
-                         adj.P.Val < 0.05 & logFC > 0.5 ~ "significant up", 
-                         T ~ "not significant")) |> 
-  arrange(adj.P.Val)
-  
-plot_volcano(DE_res) + ggtitle("Corrected by contaminant")
-
-ggsave(savepath("cancer_notcorrected.png"), h = 6, w = 6)
-
-
-top_10_cancer <- 
-  DE_res |> 
-  head(10)
-
-data |> 
-  filter(Assay %in% top_10_cancer$Assay,
-         Sample %in% contaminant_meta$Sample) |> 
-  left_join(contaminant_meta |> 
-              mutate(Sample = as.character(Sample)), by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = top_10_cancer$Assay)) |> 
-  ggplot(aes(`Polymer contaminant?`, NPX, fill = Cancer, color = Cancer)) + 
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cancer~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = pal_cancer) + 
-  scale_fill_manual(values = pal_cancer) + 
-  theme_hpa() +
-  ggtitle("Top 10 significant proteins - Non-cancer samples")
-
-ggsave(savepath("top10_corrected.png"), h = 5, w = 10)
-```
-
-### Not corrected
-
-```{r}
-metadata <- 
-  contaminant_meta |>
-  mutate(Disease = Cancer) |> 
-  select(Sample, Disease) |> 
-  mutate(Sample = as.character(Sample))
-
-data_wide <- 
-  data |> 
-  filter(Sample %in% metadata$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) 
-
-dat <-
-  data_wide %>% 
-  inner_join(metadata %>% 
-               select(Sample, Disease), by = "Sample") %>% 
-  rename(Group = Disease)
-
-# Design a model - add Group, and Sex, Age, BMI
-
-design <- model.matrix(~0 + as.factor(dat$Group))
-colnames(design) <- c("control", "case") 
-
-# Make contrast
-contrast <- makeContrasts(Diff = case - control, levels = design)
-
-dat_fit <- 
-  dat %>% 
-  select(-Group)  %>% 
-  column_to_rownames("Sample") %>% 
-  t()
-
-fit <- lmFit(dat_fit, design = design,  method = "robust", maxit = 10000)
-
-# Apply contrast
-contrast_fit <- contrasts.fit(fit, contrast)
-
-# Apply empirical Bayes smoothing to the SE
-ebays_fit <- eBayes(contrast_fit)
-
-# Extract DE results
-DE_results <-
-  topTable(ebays_fit,
-           n = nrow(ebays_fit$p.value), 
-           adjust.method = "fdr", 
-           confint = TRUE)
-
-DE_res <- 
-  DE_results %>% 
-  as_tibble(rownames = "Assay") %>% 
-  mutate(sig = case_when(adj.P.Val < 0.05 & logFC < -0.5 ~ "significant down",
-                         adj.P.Val < 0.05 & logFC > 0.5 ~ "significant up", 
-                         T ~ "not significant")) |> 
-  arrange(adj.P.Val)
-  
-plot_volcano(DE_res) + ggtitle("Not corrected")
-
-ggsave(savepath("cancer_not_corrected.png"), h = 6, w = 6)
-```
-
-## ML
-
-
-```{r}
-# Prepare ML data
-ml_data <- 
-  data |> 
-  filter(Sample %in% as.character(contaminant_meta$Sample)) |> 
-  left_join(contaminant_meta |> 
-              mutate(Sample = as.character(Sample)) |> 
-              select(Sample, Cancer, Contaminant = `Polymer contaminant?`), by = "Sample") |> 
-  mutate(Disease = ifelse(Contaminant == "Y", "0_Yes", "1_No")) |> 
-  select(Sample, Disease, Assay, NPX) |> 
-  pivot_wider(names_from = Assay,
-              values_from = NPX) 
-
-# Split data 
-set.seed(213)
-medeca_split <-
-  ml_data |> 
-  initial_split(prop = 0.7, strata = Disease)
-
-medeca_train <- training(medeca_split)
-medeca_test <- testing(medeca_split)
-
-ml_recipe <- 
-  recipe(Disease ~ ., data = medeca_train) |> 
-  update_role(Sample, new_role = "id") |> 
-  step_normalize(all_numeric()) |> 
-  step_nzv(all_numeric()) |> 
-  step_corr(all_numeric()) |> 
-  step_impute_knn(all_numeric()) 
-
-# Generate resamples
-set.seed(213)
-medeca_rs <- vfold_cv(medeca_train, v = 5, strata = Disease)
-
-# Define evaluation metrics for all workflows
-eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity)
-
-# Define control grid
-set.seed(213)
-ctrl <- control_grid(verbose = TRUE, 
-                     allow_par = TRUE,
-                     save_pred = TRUE, 
-                     parallel_over = "everything") 
-
-# Tidymodels lasso multiclassification recipe
-glmnet_lasso_specs <-
-  logistic_reg() |>
-  set_mode("classification") |>
-  set_engine("glmnet") |>
-  set_args(penalty = tune(),
-           mixture = 1)
-
-# Set up lasso workflow
-glmnet_wflow <-
-  workflow() |> 
-  add_recipe(ml_recipe) |> 
-  add_model(glmnet_lasso_specs) 
-
-# Define hyperparameter tuning grid
-set.seed(213)
-glmnet_grid <-
-  glmnet_wflow |>
-  extract_parameter_set_dials() |>
-  grid_latin_hypercube(size = 30)
-
-# Hyperparameter tuning
-set.seed(213)
-glmnet_res <-
-  glmnet_wflow |>
-  tune_grid(
-    resamples = medeca_rs,
-    grid = glmnet_grid,
-    control = ctrl,
-    metrics = eval_metrics)
-
-saveRDS(glmnet_res, "data/processed/ML_res/lasso_results_contaminant.rds")
-
-# Explore results and select the best performing hyperparameter combination
-autoplot(glmnet_res)
-
-best_glmnet <- 
-  glmnet_res |> 
-  select_best("roc_auc")
-
-final_glmnet <- 
-  glmnet_wflow |> 
-  finalize_workflow(best_glmnet)
-
-final_glmnet_fit <- 
-  last_fit(final_glmnet, medeca_split)
-
-# ROC curve
-medeca_predictions <- 
-  final_glmnet_fit |> 
-  collect_predictions() 
-
-auc <- 
-  medeca_predictions |> 
-  roc_auc(Disease, .pred_0_Yes) 
-
-roc_medeca <- 
-  medeca_predictions |> 
-  roc_curve(Disease, .pred_0_Yes) |> 
-  autoplot() +
-  geom_text(aes(label = paste0("AUC = ", round(auc$.estimate, 3)), x = 0.75, y = 0.25), inherit.aes = F) +
-  theme_hpa() +
-  ggtitle("ROC curve - MEDECA")
-
-ggsave(savepath("ROC_MEDECA.png"), h = 5, w = 5)
-
-# Confusion matrix
-cm <- 
-  final_glmnet_fit %>% 
-  collect_predictions() %>%
-  conf_mat(truth = Disease, estimate = .pred_class) 
-
-cm_medeca <- 
-  cm |> 
-  autoplot(type = "heatmap") +
-  theme_hpa()
-
-#ggsave(savepath("cm_MEDECA.png"), h = 5, w = 5)
-
-roc_medeca + cm_medeca
-ggsave(savepath("roc_cm_medeca.png"), h = 5, w = 10)
-
-
-# Probabilities
-medeca_predictions |> 
-  ggplot(aes(.pred_0_Cancer, fill = Disease)) +
-  geom_density(alpha = 0.7) +
-  scale_fill_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  xlab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA") 
-
-medeca_predictions |> 
-  ggplot(aes(Disease, .pred_0_Cancer, color = Disease)) +
-  geom_quasirandom(alpha = 0.7) +
-  geom_violin(fill = NA) + 
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  scale_color_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  ylab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA")
-
-ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
-
-final_glmnet_fit %>% 
-  extract_fit_parsnip() %>% 
-  vip(num_features = 20)
-
-# Explore important proteins
-important_proteins <- 
-  final_glmnet_fit  |> 
-  extract_fit_parsnip() %>%
-  tidy() |> 
-  filter(term != "(Intercept)") |> 
-  arrange(-abs(estimate)) |> 
-  filter(abs(estimate) > 0)
-
-# Visualize protein rank
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa(axis_y = F) +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("139 lasso features - profile") +
-
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  head(30) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa() +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("Top 30 lasso features")
- 
-ggsave(savepath("lasso_features.png"), h = 8, w = 15)
-
-# Boxplot for top important proteins
-proteins <- 
-  important_proteins |> 
-  head(10) |> 
-  pull(term)
-
-data |> 
-  filter(Assay %in% proteins,
-         Sample %in% metadata$Sample) |> 
-  filter(Sample %in% contaminant_meta$Sample) |> 
-  left_join(contaminant_meta |> 
-              rename(Contaminant = `Polymer contaminant?`) |> 
-              mutate(Sample = as.character(Sample)), by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = proteins)#,
-         #Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))
-         ) |>
-  ggplot(aes(Contaminant, NPX, fill = Contaminant, color = Contaminant)) +
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cancer~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = c("Y" = "red", "N" = "grey")) + 
-  scale_fill_manual(values = c("Y" = "red", "N" = "grey")) + 
-  theme_hpa() +
-  ggtitle("Top 10 important proteins")
-
-ggsave(savepath("top10_important_proteins_ML.png"), h = 7, w = 17)
-```
-
-# Multiclass
-
-```{r}
-# Prepare ML data
-multiclass_data <- 
-  data |> 
-  filter(Sample %in% as.character(meta_medeca$Sample)) |> 
-  left_join(meta_medeca |> 
-              mutate(Sample = as.character(Sample), 
-                      Disease_type = ifelse(Disease_type == "Other diseases", Other_disease, Disease_type)) |> 
-              filter(Disease_type %in% c("Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other", "Cancer")) |> 
-              select(Sample, Disease = Disease_type), by = "Sample") |>
-  select(Sample, Disease, Assay, NPX) |> 
-  filter(Disease != "Other") |> 
-  pivot_wider(names_from = Assay,
-              values_from = NPX) 
-
-# Split data 
-set.seed(213)
-multiclass_split <-
-  multiclass_data |> 
-  initial_split(prop = 0.7, strata = Disease)
-
-multiclass_train <- training(multiclass_split)
-multiclass_test <- testing(multiclass_split)
-
-# Barplot
-multiclass_train |> 
-  select(Sample, Disease) |> 
-  mutate(Set = "Train") |> 
-  bind_rows(multiclass_test |> 
-              select(Sample, Disease) |> 
-              mutate(Set = "Test")) |> 
-  group_by(Disease, Set) |> 
-  count() |> 
-  group_by(Disease) |> 
-  mutate(total_n = sum(n)) |> 
-  mutate(Set = factor(Set, levels = c("Test", "Train"))) |>
-  ungroup() |> 
-  group_by(Disease) |> 
-  arrange(Disease, Set) |>
-  mutate(c = cumsum(n)) |> 
-  ungroup() |> 
-  arrange(Disease, Set) |> 
-  ggplot(aes(Disease, n, fill = (Set))) +
-  geom_col() +
-  geom_text(aes(label = n, y = total_n - c), vjust = -0.5, fontface = "bold") +
-  scale_fill_manual(values = c("#AF91A8", "#FDC593")) +
-  theme_hpa(angled = T) +
-  ggtitle("Samples for machine learning - MEDECA") +
-  xlab("Class")
-
-ggsave(savepath("disease_split.png"), h = 6, w = 4)
-
-multiclass_recipe <- 
-  recipe(Disease ~ ., data = multiclass_train) |> 
-  update_role(Sample, new_role = "id") |> 
-  step_normalize(all_numeric()) |> 
-  step_nzv(all_numeric()) |> 
-  step_corr(all_numeric()) |> 
-  step_impute_knn(all_numeric()) 
-
-# Generate resamples
-set.seed(213)
-multiclass_rs <- vfold_cv(multiclass_train, v = 10, strata = Disease)
-
-# Define evaluation metrics for all workflows
-eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity)
-
-# Define control grid
-set.seed(213)
-ctrl <- control_grid(verbose = TRUE, 
-                     allow_par = TRUE,
-                     save_pred = TRUE, 
-                     parallel_over = "everything") 
-
-
-# Tidymodels lasso multiclassification recipe
-multiclass_lasso_specs <-
-  multinom_reg() |>
-  set_mode("classification") |>
-  set_engine("glmnet") |>
-  set_args(penalty = tune(),
-           mixture = 1)
-
-# Set up lasso workflow
-multiclass_wflow <-
-  workflow() |> 
-  add_recipe(multiclass_recipe) |> 
-  add_model(multiclass_lasso_specs) 
-
-# Define hyperparameter tuning grid
-set.seed(213)
-multiclass_grid <-
-  multiclass_wflow |>
-  extract_parameter_set_dials() |>
-  grid_latin_hypercube(size = 30)
-
-# Hyperparameter tuning
-set.seed(213)
-multiclass_res <-
-  multiclass_wflow |>
-  tune_grid(
-    resamples = multiclass_rs,
-    grid = multiclass_grid,
-    control = ctrl,
-    metrics = eval_metrics)
-
-saveRDS(multiclass_res, "data/processed/ML_res/lasso_results_multiclass_20240506.rds")
-
-# Explore results and select the best performing hyperparameter combination
-autoplot(multiclass_res)
-
-best_multiclass <- 
-  multiclass_res |> 
-  select_best("roc_auc")
-
-final_multiclass <- 
-  multiclass_wflow |> 
-  finalize_workflow(best_multiclass)
-
-final_multiclass_fit <- 
-  last_fit(final_multiclass, multiclass_split)
-
-# Extract model performance
-    performance <- 
-      final_multiclass_fit |> 
-      collect_metrics() |> 
-      select(-.config, -.estimator)
-    
-    glmnet_auc <- 
-      final_multiclass_fit |> 
-      collect_metrics() |> 
-      filter(.metric == "roc_auc") |> 
-      pull(.estimate) |> 
-      round(2)
-    
-    # Extract protein importance
-    important_proteins <- 
-      final_multiclass_fit  |> 
-      extract_fit_parsnip() %>%
-      tidy() |> 
-      filter(term != "(Intercept)") |> 
-      arrange(-abs(estimate)) |> 
-      filter(abs(estimate) > 0) |> 
-      select(-penalty)
-    
-    # Extract model predictions
-    predictions_multiclass <- 
-      final_multiclass_fit |> 
-      collect_predictions(summarize = F) 
-    
-    # Confusion matrix
-    cm <-
-      predictions_multiclass |>
-      # mutate(pred = ifelse(.pred_1_Healthy > 0.5, "Healthy", disease),
-      #        Disease = ifelse(Disease == "1_Healthy", "Healthy", disease)) |>
-      # mutate(Disease = factor(Disease, levels = c(disease, "Healthy")),
-      #        pred = factor(pred, levels = c(disease, "Healthy"))) |> 
-      conf_mat(Disease, .pred_class)
-    
-    cm |> 
-      autoplot(type = "heatmap")
-    
-    # ROC curve
-    roc <- 
-      predictions |>
-      roc_curve(truth = Disease, paste0(".pred_0_", disease)) 
-    
-    
-    
-    important_proteins |> 
-      filter(class == "Cancer") |> 
-      head(10)
-    
-    
-    
-# ROC curve
-multiclass_predictions <- 
-  final_multiclass_fit |> 
-  collect_predictions() 
-
-####
-
-auc <- 
-  multiclass_predictions |> 
-  roc_auc(Disease, .pred_0_Control) 
-
-roc_medeca <- 
-  medeca_predictions |> 
-  roc_curve(Disease, .pred_0_Control) |> 
-  autoplot() +
-  geom_text(aes(label = paste0("AUC = ", round(auc$.estimate, 3)), x = 0.75, y = 0.25), inherit.aes = F) +
-  theme_hpa() +
-  ggtitle("ROC curve - MEDECA")
-
-#ggsave(savepath("ROC_MEDECA.png"), h = 5, w = 5)
-
-# Confusion matrix
-cm <- 
-  final_glmnet_fit %>% 
-  collect_predictions() %>%
-  conf_mat(truth = Disease, estimate = .pred_class) 
-
-cm_medeca <- 
-  cm |> 
-  autoplot(type = "heatmap") +
-  theme_hpa(angled = T) +
-  coord_fixed()
-
-ggsave(savepath("cm_MEDECA_multiclass.png"), h = 5, w = 5)
-
-roc_medeca + cm_medeca
-ggsave(savepath("roc_cm_medeca.png"), h = 5, w = 10)
-
-
-# Probabilities
-medeca_predictions |> 
-  ggplot(aes(.pred_Cancer, fill = Disease)) +
-  geom_density(alpha = 0.7) +
-  scale_fill_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  xlab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA") +
-
-medeca_predictions |> 
-  ggplot(aes(Disease, .pred_Cancer, color = Disease)) +
-  geom_quasirandom(alpha = 0.7) +
-  geom_violin(fill = NA) + 
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  scale_color_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  ylab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA")
-
-ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
-
-# Explore important proteins
-important_proteins <- 
-  final_glmnet_fit  |> 
-  extract_fit_parsnip() %>%
-  tidy() |> 
-  filter(term != "(Intercept)") |> 
-  arrange(-abs(estimate)) |> 
-  filter(abs(estimate) > 0)
-
-# Visualize protein rank
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa(axis_y = F) +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("139 lasso features - profile") +
-
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  head(30) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa() +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("Top 30 lasso features")
- 
-ggsave(savepath("lasso_features.png"), h = 8, w = 15)
-
-# Boxplot for top important proteins
-proteins <- 
-  important_proteins |> 
-  head(10) |> 
-  pull(term)
-
-data |> 
-  filter(Assay %in% proteins,
-         Sample %in% metadata$Sample) |> 
-  left_join(metadata, by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = proteins),
-         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
-  ggplot(aes(Cancer_detected, NPX, fill = Cancer_detected, color = Cancer_detected)) +
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_wrap(Cohort~Assay, scales = "free_y", nrow = 2) +
-  scale_color_manual(values = c("yes" = "#E16C54", "no" = "#A0CBC7")) + 
-  scale_fill_manual(values = c("yes" = "#E16C54", "no" = "#A0CBC7")) + 
-  theme_hpa() +
-  ggtitle("Top 10 important proteins")
-
-ggsave(savepath("top10_important_proteins_multiclass.png"), h = 7, w = 17)
-```
 
 # Predict mortality
 

@@ -24,7 +24,8 @@ pal_group <-
 pal_group_3 <- 
   c("Cancer" = "#E16C54", 
     "Healthy" = "#BBDABB",
-    "Other diseases" = "#8A4D6E")
+    "Other diseases" = "#E9E7AB")
+
 
 # Themes
 theme_hpa <- 

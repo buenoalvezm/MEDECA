@@ -215,3 +215,141 @@ do_lasso <-
                 "important_proteins" = important_proteins))
   }
 
+do_lasso_multiclass <-  
+  function(variable,
+           split_train, 
+           split_test) {
+    
+    # Prepare data - make custom split for current variable
+    multiclass_train <- 
+      split_train |> 
+      rename(Class = !!sym(variable)) |>   
+      mutate(Class = factor(Class)) 
+    
+    multiclass_test <- 
+      split_test |> 
+      rename(Class = !!sym(variable)) |>   
+      mutate(Class = factor(Class)) 
+    
+    multiclass_split <- make_splits(multiclass_train, multiclass_test)
+    
+    multiclass_recipe <- 
+      recipe(Class ~ ., data = multiclass_train) |> 
+      update_role(Sample, new_role = "id") |> 
+      step_normalize(all_numeric()) |> 
+      step_nzv(all_numeric()) |> 
+      step_corr(all_numeric()) |> 
+      step_impute_knn(all_numeric()) 
+    
+    # Generate resamples
+    set.seed(213)
+    multiclass_rs <- vfold_cv(multiclass_train, v = 10, strata = Class)
+    
+    # Define evaluation metrics for all workflows
+    eval_metrics <- metric_set(roc_auc)
+    
+    # Define control grid
+    set.seed(213)
+    ctrl <- control_grid(verbose = TRUE, 
+                         allow_par = TRUE,
+                         save_pred = TRUE, 
+                         parallel_over = "everything") 
+    
+    
+    # Tidymodels lasso multiclassification recipe
+    multiclass_lasso_specs <-
+      multinom_reg() |>
+      set_mode("classification") |>
+      set_engine("glmnet") |>
+      set_args(penalty = tune(),
+               mixture = 1)
+    
+    # Set up lasso workflow
+    multiclass_wflow <-
+      workflow() |> 
+      add_recipe(multiclass_recipe) |> 
+      add_model(multiclass_lasso_specs) 
+    
+    # Define hyperparameter tuning grid
+    set.seed(213)
+    multiclass_grid <-
+      multiclass_wflow |>
+      extract_parameter_set_dials() |>
+      grid_latin_hypercube(size = 10)
+    
+    # Hyperparameter tuning
+    set.seed(213)
+    multiclass_res <-
+      multiclass_wflow |>
+      tune_grid(
+        resamples = multiclass_rs,
+        grid = multiclass_grid,
+        control = ctrl,
+        metrics = eval_metrics)
+    
+    #autoplot(multiclass_res)
+    
+    best_multiclass <- 
+      multiclass_res |> 
+      select_best("roc_auc")
+    
+    final_multiclass <- 
+      multiclass_wflow |> 
+      finalize_workflow(best_multiclass)
+    
+    final_multiclass_fit <- 
+      last_fit(final_multiclass, multiclass_split)
+    
+    # Extract model performance
+    performance <- 
+      final_multiclass_fit |> 
+      collect_metrics() |> 
+      select(-.config, -.estimator)
+    
+    glmnet_auc <- 
+      final_multiclass_fit |> 
+      collect_metrics() |> 
+      filter(.metric == "roc_auc") |> 
+      pull(.estimate) |> 
+      round(2)
+    
+    # Extract protein importance
+    important_proteins <- 
+      final_multiclass_fit  |> 
+      extract_fit_parsnip() %>%
+      tidy() |> 
+      filter(term != "(Intercept)") |> 
+      arrange(-abs(estimate)) |> 
+      filter(abs(estimate) > 0) |> 
+      select(-penalty)
+    
+    # Extract model predictions
+    predictions_multiclass <- 
+      final_multiclass_fit |> 
+      collect_predictions(summarize = F) 
+    
+    # Confusion matrix
+    cm <-
+      predictions_multiclass |>
+      conf_mat(Class, .pred_class)
+    
+
+    # ROC curve
+    roc <- 
+      predictions |>
+      roc_curve(truth = Disease, paste0(".pred_0_", disease)) 
+    
+    return(list("penalty" = best_multiclass,
+                "multiclass_model" = multiclass_res,
+                #"predictions_train" = predictions_train, 
+                #"performance_train" = metrics_train,
+                "final_workflow" = final_multiclass,
+                "final_fit" = final_multiclass_fit,
+                "predictions" = predictions_multiclass,
+                "performance" = performance,
+                "confusion_matrix" = cm,
+                "roc_curve" = roc, 
+                "important_proteins" = important_proteins))
+  }
+
+

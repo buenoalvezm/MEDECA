@@ -1,8 +1,13 @@
-# Utility functions
+#### Title: Utility functions
+#### Author: María Bueno Álvez
+#### Description: script collecting general functions for data manipulation
+#### Last edited : 12/08/2024
+
+# Utility packages
 library(tidyverse)
 library(impute)
 
-## Import data frames
+# Function to import data frames
 import_df <- function(file_path) {
   
   # Determine file extension from file path
@@ -22,7 +27,7 @@ import_df <- function(file_path) {
   return(df)
 }
 
-## Save results 
+# Functions to save results 
 savepath <- 
   function(savename) { 
     result_folder <- paste0("results/", Sys.Date())
@@ -50,7 +55,7 @@ savepath_data <-
   }
 
 
-# Impute values
+# Function to impute values
 impute_values <- 
   function(data, ID, wide_data = F) {
     

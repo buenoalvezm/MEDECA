@@ -1,9 +1,14 @@
-# Functions for general analyses
+#### Title: Functions for data analyses 
+#### Author: María Bueno Álvez
+#### Description: script collecting functions to perform data analyses (DE & ML)
+#### Last edited : 12/08/2024
+
+# Data analyses packages
 library(limma)
 library(tidymodels)
 library(themis)
 
-## Run differential expression using limma
+# Function to run differential expression using limma
 do_limma <-
   function(data_wide, 
            metadata,
@@ -62,6 +67,7 @@ do_limma <-
     return(DE_res)
   }
 
+# Function to perform lasso analyses
 do_lasso <-  
   function(variable,
            case, 
@@ -215,6 +221,7 @@ do_lasso <-
                 "important_proteins" = important_proteins))
   }
 
+# Function to perform lasso multiclassification analyses
 do_lasso_multiclass <-  
   function(variable,
            split_train, 

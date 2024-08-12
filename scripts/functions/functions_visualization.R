@@ -1,4 +1,9 @@
-# Functions for visualization
+#### Title: Functions for data visualization 
+#### Author: María Bueno Álvez
+#### Description: script collecting functions to plot data
+#### Last edited : 12/08/2024
+
+# Visualization packages
 library(ggrepel)
 library(tidytext)
 library(embed)
@@ -11,7 +16,7 @@ library(ggridges)
 library(viridis)
 library(GGally)
 
-## Generate PCA
+# Function to generate PCA
 do_pca <- function(data,
                    meta = NULL,
                    variable = NULL,
@@ -101,7 +106,7 @@ do_pca <- function(data,
   
 }
 
-## Generate UMAP
+# Function to generate UMAP
 do_umap <- function(data,
                     meta = NULL,
                     variable = NULL,
@@ -158,7 +163,8 @@ do_umap <- function(data,
   }
   
 }
-## Generate volcano plot from differential expression results                                                                                                                                  
+
+# Function to generate volcano plot from differential expression results                                                                                                                                  
 plot_volcano <- function(de_results) {
   
   labels <- 

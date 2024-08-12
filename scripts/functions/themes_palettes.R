@@ -1,3 +1,9 @@
+#### Title: Themes & palettes
+#### Author: María Bueno Álvez
+#### Description: script collecting themes & palettes
+#### Last edited : 12/08/2024
+
+# Packages for themes & palettes
 library(RColorBrewer)
 
 # Palettes
@@ -11,6 +17,7 @@ pal_de <-
     "significant down" = "#92C9DA")
 
 pal_cancer <- c("Yes" = "#E16C54", "No" = "#A0CBC7")
+
 pal_sex <- c("Male" = "#3E4A57", "Female" = "#CEC6B3")
 
 pal_group <- 
@@ -26,8 +33,7 @@ pal_group_3 <-
     "Healthy" = "#BBDABB",
     "Other diseases" = "#E9E7AB")
 
-
-# Themes
+# HPA theme
 theme_hpa <- 
   function(angled = F, axis_x = T, axis_y = T, facet_title = T) {
     t <- 

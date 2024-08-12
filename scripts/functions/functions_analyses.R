@@ -1,7 +1,7 @@
 # Functions for general analyses
 library(limma)
 library(tidymodels)
-
+library(themis)
 
 ## Run differential expression using limma
 do_limma <-

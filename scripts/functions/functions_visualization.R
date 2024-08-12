@@ -8,6 +8,8 @@ library(ggsci)
 library(ggplotify)
 library(pheatmap)
 library(ggridges)
+library(viridis)
+library(GGally)
 
 ## Generate PCA
 do_pca <- function(data,

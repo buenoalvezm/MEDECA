@@ -8,17 +8,9 @@ editor_options:
 ---
 
 ```{r, include=FALSE}
-# Load packages
-library("tidyverse") 
-library("patchwork")
-library("ggrepel")
-library("ggbeeswarm")
-library("viridis")
-library("GGally")
-library("impute")
-
-source("scripts/themes_palettes.R")
-source("scripts/functions_utility.R")
+source("scripts/functions/functions_utility.R")
+source("scripts/functions/functions_visualization.R")
+source("scripts/functions/themes_palettes.R")
 
 raw_data <- read_delim("data/Updated datafiles/VL-3453_ALLVOS_MEDECA_NPX_2023-08-23.csv", delim = ";")
 ```

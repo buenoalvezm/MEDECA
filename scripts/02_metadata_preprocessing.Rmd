@@ -9,10 +9,9 @@ editor_options:
 
 ```{r setup, include=FALSE}
 # Read functions & packages
-source("scripts/themes_palettes.R")
-source("scripts/functions_utility.R")
-source("scripts/functions_analyses.R")
-source("scripts/functions_visualization.R")
+source("scripts/functions/functions_utility.R")
+source("scripts/functions/functions_visualization.R")
+source("scripts/functions/themes_palettes.R")
 
 # Read data
 data <- 
@@ -106,6 +105,15 @@ meta_combined <-
 ```
 
 
+# Save data & metadata 
+
+```{r}
+dir.create("data/processed/final_data/")
+
+write_csv("data/processed/final_data/final_olink_data.csv")  
+write_csv("data/processed/final_data/final_metadata.csv")  
+
+```
 
 # Overview of the cohort
 

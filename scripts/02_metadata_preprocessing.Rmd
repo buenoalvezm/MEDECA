@@ -1,0 +1,254 @@
+---
+title: "Metadata preprocessing"
+output: html_document
+date: "2024-03-26"
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+# Read functions & packages
+source("scripts/themes_palettes.R")
+source("scripts/functions_utility.R")
+source("scripts/functions_analyses.R")
+source("scripts/functions_visualization.R")
+
+# Read data
+data <- 
+  import_df("data/processed/olink_data/olink_data_qc.csv") |> 
+  rename(Sample = SampleID) |> 
+  mutate(Sample = as.character(Sample))
+
+metadata <- import_df("data/Exports from R after processing updated data files/all_data.xlsx")
+
+metadata <- 
+  metadata |> 
+  select(!starts_with("Olink")) |>
+  rename(Sample = Patient_number) |> 
+  filter(Sample %in% data$Sample) |> 
+  mutate(ID = as.numeric(Sample), 
+         Cohort = ifelse(ID > 1000, "ALLVOS", "MEDECA")) |> 
+  select(-ID)
+
+metadata_medeca <- import_df("data/2024-04-04 pat 1-728.xlsx")
+metadata_allvos <- import_df("data/Cohortdata proteomics 240429 till fredrika.xlsx")
+```
+
+# Metadata pre-processing
+
+## MEDECA
+
+```{r}
+keep_columns <- c("Patient number", "Sex 1 male", "Age", "CUP", "Ongoing cancer known prior to DC", 
+                  "Loss to follow up","Other disease than cancer", "No disease", "Autoimmune1",
+                  "Inflammatory", "Infectious", "thromboembolism", "Other disease", "Metastases", 
+                  "Carcinom", "Germinal cell tumors", "SCC", "Urothelial", "Neuroendocrine tumors",
+                  "Adenocarcinoma", "HCC", "Kidney", "Adrenal", "Prostate", "Lung", "Breast", "Thyroid",
+                  "Gynecologic","Ovarian or tubar", "Colorectal", "Urine bladder", "Merkel cell carcinoma",
+                  "Small cell parotid", "Pancreas or gall bladder or bile duct", "Ventricle", 
+                  "Other adenocarcinoma", "Other carcinoma such as mesothelioma", "Sarkom", "Lymfom",
+                  "Melanom", "Myelom", "MDS MPN", "Other cancer")
+
+meta_medeca <- 
+  metadata_medeca |>
+  select(keep_columns) |> 
+  rename(Sample = `Patient number`) |> 
+  mutate(`Loss to follow up` = ifelse(is.na(`Loss to follow up`), 0, `Loss to follow up`)) |>
+  filter(Sample %in% data$Sample,
+         `Ongoing cancer known prior to DC` == 0,
+         `Loss to follow up` != 1) |> 
+  mutate(Sex = ifelse(`Sex 1 male` == 1, "Male", "Female")) |> 
+  select(-`Ongoing cancer known prior to DC`, -`Loss to follow up`, - `Sex 1 male`) |> 
+  relocate(Sex, .after = "Age") |> 
+  mutate(Disease_type = case_when(`Other disease than cancer` == 0 & `No disease` == 0 ~ "Cancer",
+                             `Other disease than cancer` == 0 & `No disease` == 1 ~ "Healthy",
+                             `Other disease than cancer` == 1 & `No disease` == 0 ~ "Other diseases",
+                             T ~ NA),
+         Other_disease = case_when(Autoimmune1 == 1 ~ "Autoimmune",
+                                   Inflammatory == 1 ~ "Inflammatory", 
+                                   Infectious == 1 ~ "Infectious", 
+                                   thromboembolism == 1 ~ "Other", 
+                                   `Other disease` == 1 ~ "Other"),
+         Cancer = ifelse(Disease_type == "Cancer", "Yes", "No"),
+         Cancer = ifelse(Sample == 494, "No", Cancer),
+         Disease_type = ifelse(Sample == 494, "Other diseases", Disease_type)) |> 
+  select(-Autoimmune1, -Inflammatory, -Infectious, -thromboembolism) |> 
+  relocate(Disease_type, Other_disease, .after = Sex) |> 
+  mutate(Sample = as.character(Sample))
+```
+
+## ALLVOS 
+
+```{r}
+meta_allvos <- 
+  metadata_allvos |>
+  mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
+  filter(`Ongoing cancer` != 1,
+         `Lost to follow up` != 1,
+         StudyID %in% data$Sample) |> 
+  select(Sample = StudyID, Age, Sex, Cancer) |> 
+  mutate(Cancer = ifelse(Cancer == 1, "Yes", "No"),
+         Sample = as.character(Sample)) 
+```
+
+## Combine
+
+```{r}
+meta_combined <- 
+  meta_medeca |> 
+  select(Sample, Age, Sex, Cancer) |> 
+  mutate(Cohort = "MEDECA") |> 
+  bind_rows(meta_allvos |> 
+              select(Sample, Age, Sex, Cancer) |> 
+              mutate(Cohort = "ALLVOS")) |> 
+  mutate(Sample = as.character(Sample))
+```
+
+
+
+# Overview of the cohort
+
+
+## Sample distribution MEDECA/ALLVOS
+
+```{r}
+# Visualize the number of cases in both cohorts
+p_right <- 
+  meta_combined  |>
+  group_by(Cancer) |>
+  count(Cohort) |>
+  ungroup() |> 
+  group_by(Cohort) |> 
+  mutate(cum_n = cumsum(n)) |> 
+  mutate(Cancer = factor(Cancer, levels = c("Yes", "No")),
+         Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS")))) |>
+  ggplot(aes(Cohort, n, fill = Cancer)) +
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = pal_cancer) + 
+  geom_text(aes(label = n, y = cum_n - 20), vjust = -0.5, fontface = "bold", color = "white") +
+  theme_hpa() +
+#  ggtitle("Cancer detection") +
+  coord_flip() +
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank())
+
+p_left <- 
+  meta_combined  |>
+  group_by(Cohort) |>
+  count(Sex) |>
+  ungroup() |> 
+  group_by(Cohort) |> 
+  mutate(cum_n = cumsum(n)) |> 
+  mutate(Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS"))),
+         Sex = factor(Sex, levels = c("Male", "Female"))) |>
+  ggplot(aes(Cohort, n, fill = Sex)) + 
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = pal_sex) + 
+  geom_text(aes(label = n, y = cum_n - 20), vjust = -0.5, fontface = "bold", color = "white") +
+  theme_hpa(axis_y = F) + 
+  scale_y_reverse() +
+  coord_flip() +
+  theme(legend.position = "left")
+  
+p_age <- 
+  meta_combined |>
+  ggplot(aes(y = Cohort, x = Age, fill = Cancer)) +
+  geom_density_ridges(quantile_lines = TRUE, quantiles = 2, alpha = 0.6, show.legend = F, scale = 1) +
+  scale_fill_manual(values = pal_cancer) +
+  theme_hpa(axis_y = F) 
+  
+p_left + p_right + p_age
+ggsave(savepath("cancer_detected_cohort.pdf"), h = 4, w = 12)
+
+```
+
+## Controls MEDECA
+
+```{r}
+meta_medeca |>  
+  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
+         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
+  group_by(Disease_type) |>
+  filter(Disease_type != "Cancer") |> 
+  count(Other_disease) |> 
+  mutate(total = sum(n)) |> 
+  mutate(Group = factor(Other_disease, levels = c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other"))) |> 
+  ggplot(aes(Disease_type, n, fill = Other_disease)) +
+  geom_col() +
+  geom_text(aes(label = total, y = total + 5)) + 
+  scale_fill_manual(values = pal_group) +
+  theme_hpa() +
+  ggtitle("MEDECA controls") +
+  xlab("")
+  
+ggsave(savepath("MEDECA_controls.png"), h = 5, w = 5)
+
+meta_medeca |>  
+  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
+         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
+  filter(Disease_type != "Cancer") |> 
+  group_by(Other_disease) |> 
+  count() |> 
+  filter(!is.na(Other_disease)) |>
+  mutate(Other_disease = factor(Other_disease, levels = c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other"))) |> 
+  ggplot(aes(Other_disease, n, fill = Other_disease)) +
+  geom_col() +
+  geom_text(aes(label = n, y = n + 5)) + 
+  scale_fill_manual(values = pal_group) +
+  theme_hpa(angled = T) +
+  xlab("")
+  
+ggsave(savepath("MEDECA_controls.pdf"), h = 5, w = 4)
+```
+
+## PCA MEDECA
+
+```{r}
+# Subset MEDECA data
+data_medeca <- 
+  data |> 
+  filter(Sample %in% meta_medeca$Sample)
+
+# Run PCA
+pca_medeca <- 
+  do_pca(data = data_medeca, 
+         meta = meta_medeca,
+         variable = "Disease_type", 
+         wide = F,
+         impute = T,
+         plots = T)
+
+pca_medeca$pca_plot 
+
+# Manuscript figure
+pca_medeca$pca_res %>%
+  left_join(meta_medeca, by = "Sample") %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_point(aes(color = Disease_type), alpha = 0.7, size = 2, show.legend = F) +
+  scale_color_manual(values = pal_group_3) +
+  labs(color = NULL) +
+  theme_hpa() +
+
+meta_medeca |>
+  filter(Sample %in% data$Sample) |> 
+  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
+         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
+  mutate(Disease_type = ifelse(Sample == "138", "Other diseases", Disease_type)) |> 
+  #filter(Disease_type != "Cancer") |> 
+  group_by(Disease_type,Other_disease) |> 
+  count() |> 
+  filter(!is.na(Other_disease)) |>
+  mutate(Other_disease = factor(Other_disease, levels = rev(c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other")))) |> 
+  ggplot(aes(Other_disease, n, fill = Disease_type)) +
+  geom_col() +
+  geom_text(aes(label = n, y = n + 5)) + 
+  scale_fill_manual(values = pal_group_3) +
+  coord_flip() +
+  theme_hpa(angled = T) +
+  xlab("") +
+  ylab("Number of samples")
+  
+ggsave(savepath("MEDECA_controls.pdf"), h = 4.5, w = 10)
+```

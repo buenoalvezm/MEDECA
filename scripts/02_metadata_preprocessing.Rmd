@@ -164,9 +164,7 @@ meta_combined <-
 ```{r}
 data_filtered <- 
   data |> 
-  distinct(Sample) |> 
-  filter(Sample %in% meta_combined$Sample) |> 
-  distinct(Sample)
+  filter(Sample %in% meta_combined$Sample) 
 
 length(unique(data$Sample))
 nrow(meta_allvos) + nrow(meta_medeca) 

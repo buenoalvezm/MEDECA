@@ -119,69 +119,55 @@ proteins <-
          pval_MEDECA = adj.P.Val,
          pval_ALLVOS) 
 
-# Beeswarms
-library("ggrain")
 top_proteins <- 
   proteins |> 
-  head(7) |> 
+  head(n_top) |> 
   pull(Assay)
 
-data |> 
-  filter(Sample %in% c(meta_medeca$Sample, meta_allvos$Sample)) |> 
-  filter(Assay %in% top_proteins) |> 
-  left_join(combined_meta, by = "Sample") |> 
-  mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
-         Assay = factor(Assay, levels = top_proteins)) |> 
-  ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
-  geom_rain(alpha = 0.5) +
-  facet_grid(Assay~Cohort, scales = "free") +
-  scale_color_manual(values = pal_cancer) +
-  scale_fill_manual(values = pal_cancer) +
-  theme_hpa()
-
+plot_raincloud_cohorts(proteins = top_proteins)
+plot_beeswarm_cohorts(proteins = top_proteins)
 ggsave(savepath("top_proteins.pdf"), h = 12, w = 5)
 
-
-# Heatmap
-annotation_cols <- 
-  proteins |> 
-  column_to_rownames("Assay") 
-
-combined_meta <- 
-  meta_medeca |> 
-  select(Sample, Cancer) |> 
-  mutate(Cohort = "MEDECA") |> 
-  bind_rows(meta_allvos |> 
-  select(Sample, Cancer) |> 
-  mutate(Cohort = "ALLVOS")) 
-
-annotation_rows <- 
-  combined_meta |> 
-  column_to_rownames("Sample") 
-
-reduced_data <- 
-  data |> 
-  filter(Assay %in% proteins$Assay,
-         Sample %in% c(meta_allvos$Sample, meta_medeca$Sample)) 
-
-reduced_data |> 
-  filter(Sample %in% meta_all$Sample) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) |> 
-  column_to_rownames("Sample") |> 
-  scale() |> 
-  pheatmap(show_rownames = F,
-           clustering_method = "ward.D2",
-           annotation_row = annotation_rows,
-           annotation_col = annotation_cols)
-
-pca_reduced <- 
-  do_pca(data = reduced_data,
-       meta = combined_meta,
-       variable = "Cohort",
-       wide = F,
-       plots = T)
-
-pca_reduced$pca_plot
+# # Heatmap
+# annotation_cols <- 
+#   proteins |> 
+#   column_to_rownames("Assay") 
+# 
+# combined_meta <- 
+#   meta_medeca |> 
+#   select(Sample, Cancer) |> 
+#   mutate(Cohort = "MEDECA") |> 
+#   bind_rows(meta_allvos |> 
+#   select(Sample, Cancer) |> 
+#   mutate(Cohort = "ALLVOS")) 
+# 
+# annotation_rows <- 
+#   combined_meta |> 
+#   column_to_rownames("Sample") 
+# 
+# reduced_data <- 
+#   data |> 
+#   filter(Assay %in% proteins$Assay,
+#          Sample %in% c(meta_allvos$Sample, meta_medeca$Sample)) 
+# 
+# reduced_data |> 
+#   filter(Sample %in% metadata$Sample) |> 
+#   pivot_wider(names_from = Assay, values_from = NPX) |> 
+#   column_to_rownames("Sample") |> 
+#   scale() |> 
+#   pheatmap(show_rownames = F,
+#            clustering_method = "ward.D2",
+#            annotation_row = annotation_rows,
+#            annotation_col = annotation_cols)
+# 
+# pca_reduced <- 
+#   do_pca(data = reduced_data,
+#        meta = combined_meta,
+#        variable = "Cohort",
+#        wide = F,
+#        plots = T)
+# 
+# pca_reduced$pca_plot
 ```
 
 # Functional characterization

@@ -15,6 +15,7 @@ library(pheatmap)
 library(ggridges)
 library(viridis)
 library(GGally)
+library(ggrain)
 
 # Function to generate PCA
 do_pca <- function(data,
@@ -185,4 +186,44 @@ plot_volcano <- function(de_results) {
           legend.position = "top") 
   
   return(volcano_plot)
+}
+
+# Function to generate a beesarm plot in MEDECA/ALLVOS for selected proteins
+plot_beeswarm_cohorts <- function(proteins) {
+  data |> 
+    filter(Assay %in% proteins) |> 
+    left_join(metadata |> 
+                select(Sample, Cancer, Cohort), by = "Sample") |> 
+    mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
+           Assay = factor(Assay, levels = top_proteins)) |> 
+    ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
+    geom_quasirandom(size = 0.5) +
+    geom_boxplot(alpha = 0.5, outlier.color = NA) +
+    stat_summary(fun = "median",
+                 geom = "crossbar", 
+                 width = 0.2,
+                 colour = "grey20",
+                 show.legend = F) +
+    facet_grid(Assay~Cohort, scales = "free") +
+    scale_color_manual(values = pal_cancer) +
+    scale_fill_manual(values = pal_cancer) +
+    theme_hpa()
+  
+}
+
+# Function to generate a raincloud plot in MEDECA/ALLVOS for selected proteins
+plot_raincloud_cohorts <- function(proteins) {
+  data |> 
+    filter(Assay %in% proteins) |> 
+    left_join(metadata |> 
+                select(Sample, Cancer, Cohort), by = "Sample") |> 
+    mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
+           Assay = factor(Assay, levels = top_proteins)) |> 
+    ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
+    geom_rain(alpha = 0.5) +
+    facet_grid(Assay~Cohort, scales = "free") +
+    scale_color_manual(values = pal_cancer) +
+    scale_fill_manual(values = pal_cancer) +
+    theme_hpa()
+  
 }

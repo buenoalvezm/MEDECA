@@ -32,6 +32,7 @@ metadata <-
 
 metadata_medeca <- import_df("data/2024-04-04 pat 1-728.xlsx")
 metadata_allvos <- import_df("data/Cohortdata proteomics 240429 till fredrika.xlsx")
+metadata_allvos_controls <- import_df("data/ALLVOS/Diagnosis Proteomics 238.xlsx")
 ```
 
 # Metadata pre-processing
@@ -60,35 +61,90 @@ meta_medeca <-
   mutate(Sex = ifelse(`Sex 1 male` == 1, "Male", "Female")) |> 
   select(-`Ongoing cancer known prior to DC`, -`Loss to follow up`, - `Sex 1 male`) |> 
   relocate(Sex, .after = "Age") |> 
-  mutate(Disease_type = case_when(`Other disease than cancer` == 0 & `No disease` == 0 ~ "Cancer",
-                             `Other disease than cancer` == 0 & `No disease` == 1 ~ "Healthy",
-                             `Other disease than cancer` == 1 & `No disease` == 0 ~ "Other diseases",
-                             T ~ NA),
-         Other_disease = case_when(Autoimmune1 == 1 ~ "Autoimmune",
-                                   Inflammatory == 1 ~ "Inflammatory", 
-                                   Infectious == 1 ~ "Infectious", 
-                                   thromboembolism == 1 ~ "Other", 
-                                   `Other disease` == 1 ~ "Other"),
-         Cancer = ifelse(Disease_type == "Cancer", "Yes", "No"),
-         Cancer = ifelse(Sample == 494, "No", Cancer),
-         Disease_type = ifelse(Sample == 494, "Other diseases", Disease_type)) |> 
+  mutate(`No disease` = ifelse(Sample == 494, 0, `No disease`), #Correction
+         `Other disease than cancer` = ifelse(Sample == "138", 1, `Other disease than cancer`), # Correction
+         `No disease` = ifelse(Sample == "138", 0, `No disease`), # Correction
+          Category = case_when(`Other disease than cancer` == 0 & `No disease` == 0 ~ "Cancer",
+                              `Other disease than cancer` == 0 & `No disease` == 1 ~ "No diagnosis",
+                              `Other disease than cancer` == 1 & `No disease` == 0 ~ "Other diseases",
+                              T ~ NA),
+         Disease_type = case_when(Autoimmune1 == 1 ~ "Autoimmune",
+                                  Inflammatory == 1 ~ "Inflammatory", 
+                                  Infectious == 1 ~ "Infectious", 
+                                  thromboembolism == 1 ~ "Other", 
+                                  `Other disease` == 1 ~ "Other",
+                                  Category == "Other diseases" ~ "Other", #Sample 297 & 372 changed
+                                  Category == "Cancer" ~ "Cancer",
+                                  Category == "No diagnosis" ~ "No diagnosis"),
+         Cancer = ifelse(Disease_type == "Cancer", "Yes", "No")) |>  
   select(-Autoimmune1, -Inflammatory, -Infectious, -thromboembolism) |> 
-  relocate(Disease_type, Other_disease, .after = Sex) |> 
-  mutate(Sample = as.character(Sample))
+  relocate(Category, Disease_type, .after = Sex) |> 
+  mutate(Sample = as.character(Sample),
+         Disease_type = factor(Disease_type, 
+                               levels = c("Cancer", "No diagnosis", "Autoimmune", "Infectious", "Inflammatory", "Other")),
+         Category = factor(Category, 
+                           levels = c("Cancer", "No diagnosis", "Other diseases")))
 ```
 
 ## ALLVOS 
 
 ```{r}
+duplicated_allvos <- 
+  metadata_allvos_controls |> 
+  count(`Sample ID`) |> 
+  arrange(-n) |> 
+  filter(n > 1) |> 
+  pull(`Sample ID`)
+
 meta_allvos <- 
   metadata_allvos |>
-  mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
+  mutate(StudyID = as.character(StudyID),
+         `Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
   filter(`Ongoing cancer` != 1,
          `Lost to follow up` != 1,
          StudyID %in% data$Sample) |> 
   select(Sample = StudyID, Age, Sex, Cancer) |> 
+  left_join(metadata_allvos_controls |>
+               filter(!(`Sample ID` %in% duplicated_allvos & Category != "Cancer")) |> 
+              mutate(`Sample ID` = as.character(`Sample ID`)) |> 
+              select(Sample = `Sample ID`, Disease_type = Category), by = "Sample") |> 
   mutate(Cancer = ifelse(Cancer == 1, "Yes", "No"),
-         Sample = as.character(Sample)) 
+         Category = ifelse(Disease_type %in% c("Autoimmune", "Infectious", "Inflammatory", "Other"), "Other diseases", Disease_type),
+         Disease_type = factor(Disease_type, 
+                               levels = c("Cancer", "No diagnosis", "Autoimmune", "Infectious", "Inflammatory", "Other")),
+         Category = factor(Category, 
+                           levels = c("Cancer", "No diagnosis", "Other diseases")))
+
+# 5 ALLVOS patients no cancer but no diagnosis
+metadata_allvos |> 
+    mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
+  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`,
+         `Ongoing cancer` != 1,
+         `Lost to follow up` != 1,
+         StudyID %in% as.numeric(data$Sample))
+
+metadata_allvos_controls |> 
+  filter(!`Sample ID` %in% metadata_allvos$StudyID)
+
+metadata_allvos |> 
+  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
+
+#Check patient ID missmatch
+metadata_allvos |> 
+  mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
+  filter(`Lost to follow up` == 0,
+         `Ongoing cancer` != 1) |> 
+#  distinct(StudyID) |> 
+  filter(StudyID %in% as.numeric(data$Sample)) |> 
+  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
+
+metadata_allvos_controls |>
+  filter(`Sample ID` %in% duplicated_allvos)
+
+meta_allvos |> 
+  filter(is.na(Disease_type))
+  #distinct(Disease_type)
+
 ```
 
 ## Combine
@@ -96,23 +152,37 @@ meta_allvos <-
 ```{r}
 meta_combined <- 
   meta_medeca |> 
-  select(Sample, Age, Sex, Cancer) |> 
+  select(Sample, Age, Sex, Cancer, Category, Disease_type) |> 
   mutate(Cohort = "MEDECA") |> 
   bind_rows(meta_allvos |> 
-              select(Sample, Age, Sex, Cancer) |> 
-              mutate(Cohort = "ALLVOS")) |> 
-  mutate(Sample = as.character(Sample))
+              select(Sample, Age, Sex, Cancer, Category, Disease_type) |> 
+              mutate(Cohort = "ALLVOS")) 
 ```
 
+# Filter data to include only samples with metadata
+
+```{r}
+data_filtered <- 
+  data |> 
+  distinct(Sample) |> 
+  filter(Sample %in% meta_combined$Sample) |> 
+  distinct(Sample)
+
+length(unique(data$Sample))
+nrow(meta_allvos) + nrow(meta_medeca) 
+nrow(meta_combined)
+length(unique(data_filtered$Sample))
+```
 
 # Save data & metadata 
 
 ```{r}
 dir.create("data/processed/final_data/")
 
-write_csv("data/processed/final_data/final_olink_data.csv")  
-write_csv("data/processed/final_data/final_metadata.csv")  
-
+write_csv(data_filtered, "data/processed/final_data/final_olink_data.csv")  
+write_csv(meta_combined, "data/processed/final_data/combined_metadata.csv")  
+write_csv(meta_medeca, "data/processed/final_data/medeca_metadata.csv")  
+write_csv(meta_allvos, "data/processed/final_data/allvos_metadata.csv")  
 ```
 
 # Overview of the cohort
@@ -176,14 +246,11 @@ ggsave(savepath("cancer_detected_cohort.pdf"), h = 4, w = 12)
 
 ```{r}
 meta_medeca |>  
-  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
-         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
-  group_by(Disease_type) |>
+  group_by(Category) |>
   filter(Disease_type != "Cancer") |> 
-  count(Other_disease) |> 
+  count(Disease_type) |> 
   mutate(total = sum(n)) |> 
-  mutate(Group = factor(Other_disease, levels = c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other"))) |> 
-  ggplot(aes(Disease_type, n, fill = Other_disease)) +
+  ggplot(aes(Category, n, fill = Disease_type)) +
   geom_col() +
   geom_text(aes(label = total, y = total + 5)) + 
   scale_fill_manual(values = pal_group) +
@@ -191,24 +258,20 @@ meta_medeca |>
   ggtitle("MEDECA controls") +
   xlab("")
   
-ggsave(savepath("MEDECA_controls.png"), h = 5, w = 5)
+#ggsave(savepath("MEDECA_controls.png"), h = 5, w = 5)
 
 meta_medeca |>  
-  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
-         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
   filter(Disease_type != "Cancer") |> 
-  group_by(Other_disease) |> 
+  group_by(Disease_type) |> 
   count() |> 
-  filter(!is.na(Other_disease)) |>
-  mutate(Other_disease = factor(Other_disease, levels = c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other"))) |> 
-  ggplot(aes(Other_disease, n, fill = Other_disease)) +
+  ggplot(aes(Disease_type, n, fill = Disease_type)) +
   geom_col() +
   geom_text(aes(label = n, y = n + 5)) + 
   scale_fill_manual(values = pal_group) +
   theme_hpa(angled = T) +
   xlab("")
   
-ggsave(savepath("MEDECA_controls.pdf"), h = 5, w = 4)
+#ggsave(savepath("MEDECA_controls.pdf"), h = 5, w = 4)
 ```
 
 ## PCA MEDECA
@@ -234,22 +297,16 @@ pca_medeca$pca_plot
 pca_medeca$pca_res %>%
   left_join(meta_medeca, by = "Sample") %>%
   ggplot(aes(PC1, PC2)) +
-  geom_point(aes(color = Disease_type), alpha = 0.7, size = 2, show.legend = F) +
+  geom_point(aes(color = Category), alpha = 0.7, size = 2, show.legend = F) +
   scale_color_manual(values = pal_group_3) +
   labs(color = NULL) +
   theme_hpa() +
 
 meta_medeca |>
-  filter(Sample %in% data$Sample) |> 
-  mutate(Other_disease = ifelse(is.na(Other_disease), Disease_type, Other_disease),
-         Other_disease = ifelse(Other_disease == "Other diseases", NA, Other_disease)) |>
-  mutate(Disease_type = ifelse(Sample == "138", "Other diseases", Disease_type)) |> 
-  #filter(Disease_type != "Cancer") |> 
-  group_by(Disease_type,Other_disease) |> 
+  group_by(Category, Disease_type) |> 
   count() |> 
-  filter(!is.na(Other_disease)) |>
-  mutate(Other_disease = factor(Other_disease, levels = rev(c("Cancer", "Healthy", "Autoimmune", "Infectious", "Inflammatory", "Other")))) |> 
-  ggplot(aes(Other_disease, n, fill = Disease_type)) +
+  mutate(Disease_type = factor(Disease_type, levels = rev(levels(Disease_type)))) |> 
+  ggplot(aes(Disease_type, n, fill = Category)) +
   geom_col() +
   geom_text(aes(label = n, y = n + 5)) + 
   scale_fill_manual(values = pal_group_3) +

@@ -16,7 +16,9 @@ source("scripts/functions/functions_visualization.R")
 
 # Read data
 data <- import_df("data/processed/final_data/final_olink_data.csv")  
-metadata <- import_ds("data/processed/final_data/final_metadata.csv")  
+metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
+meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
+meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")   
 ```
 
 

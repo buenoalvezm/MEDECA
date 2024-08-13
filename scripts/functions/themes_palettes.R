@@ -22,7 +22,7 @@ pal_sex <- c("Male" = "#3E4A57", "Female" = "#CEC6B3")
 
 pal_group <- 
   c("Cancer" = "#E16C54", 
-    "Healthy" = "#BBDABB", 
+    "No diagnosis" = "#BBDABB", 
     "Autoimmune" = "#E4A6B0", 
     "Infectious" = "#E3D0A6", 
     "Inflammatory" = "#7A76A9", 
@@ -30,7 +30,7 @@ pal_group <-
 
 pal_group_3 <- 
   c("Cancer" = "#E16C54", 
-    "Healthy" = "#BBDABB",
+    "No diagnosis" = "#BBDABB",
     "Other diseases" = "#E9E7AB")
 
 # HPA theme

@@ -19,6 +19,8 @@ data <- import_df("data/processed/final_data/final_olink_data.csv")
 metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
 meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")  
+hpa <- import_df("data/hpa/proteinatlas.tsv")
+pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
 ```
 
 
@@ -43,7 +45,8 @@ medeca_de <-
            variable = "Cancer", 
            case = "Yes",
            correct = T) 
- 
+
+saveRDS(medeca_de, savepath_data("DE", "de_medeca.rds"))
 
 volcano_medeca <- plot_volcano(medeca_de) + ggtitle("MEDECA")
 ```
@@ -70,6 +73,7 @@ allvos_de <-
            case = "Yes",
            correct = T) 
  
+saveRDS(allvos_de, savepath_data("DE", "de_allvos.rds"))
 
 volcano_allvos <- plot_volcano(allvos_de) + ggtitle("ALLVOS")
 ```
@@ -183,24 +187,26 @@ proteins_func <-
               mutate(Cohort = "ALLVOS")) |> 
   filter(Assay %in% proteins$Assay)
 
-
-#hpa <- 
-library(paletteer)
-hpa <- import_df("data/hpa/proteinatlas.tsv")
-pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
-
-
-|>
-
-    View()
-
 secreted <- 
   hpa |> 
   distinct(Secretome.location) |> 
   filter(grepl("Secreted", Secretome.location)) |> 
   pull()
 
-part_2 <- 
+de_prots <- 
+  proteins_func |> 
+  mutate(Assay= factor(Assay, levels = rev(proteins$Assay)),
+         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
+  ggplot(aes(Cohort, Assay, color = logFC, size = -log10(adj.P.Val))) +
+  geom_point() +
+  scale_color_paletteer_c(palette = "ggthemes::Red") +
+  theme_hpa(angled = T) +
+  theme(axis.ticks.y = element_blank(),
+        legend.position = "left") +
+  ylab("") +
+  xlab("")
+
+characterization_prots <- 
   hpa |> 
   filter(Gene %in% proteins$Assay) |> 
   select(Gene,
@@ -226,22 +232,8 @@ part_2 <-
   xlab("") +
   theme_hpa(angled = T, axis_y = F)
 
+de_prots + characterization_prots
 
-pal_red <- rev(colorRampPalette(brewer.pal(6, "Reds"))(10))
-part_1 <- 
-  proteins_func |> 
-  mutate(Assay= factor(Assay, levels = rev(proteins$Assay)),
-         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
-  ggplot(aes(Cohort, Assay, color = logFC, size = -log10(adj.P.Val))) +
-  geom_point() +
-  scale_color_paletteer_c(palette = "ggthemes::Red") +
-  theme_hpa(angled = T) +
-  theme(axis.ticks.y = element_blank(),
-        legend.position = "left") +
-  ylab("") +
-  xlab("")
-
-part_1 + part_2
 ggsave(savepath("proteins_functional_characterization.pdf"), h = 12, w = 6)
 ```
 

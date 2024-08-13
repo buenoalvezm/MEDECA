@@ -20,7 +20,8 @@ metadata <- import_df("data/processed/final_data/combined_metadata.csv")
 meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")  
 ```
-# Preciction 
+
+# Mortality classification 
 
 ```{r}
 # Prepare ML data
@@ -30,8 +31,7 @@ ml_data <-
   left_join(metadata_medeca |> 
               mutate(Sample = as.character(`Patient number`)) |> 
               select(Sample, Mortality), by = "Sample") |> 
-  mutate(Disease = ifelse(Mortality == "1", "0_Yes", "1_No")) |> 
-  select(Sample, Disease, Assay, NPX) |> 
+  select(Sample, Mortality, Assay, NPX) |> 
   pivot_wider(names_from = Assay,
               values_from = NPX) 
 
@@ -41,220 +41,20 @@ medeca_split <-
   ml_data |> 
   initial_split(prop = 0.7, strata = Disease)
 
-medeca_train <- training(medeca_split)
-medeca_test <- testing(medeca_split)
-
-# Barplot
-medeca_train |> 
-  select(Sample, Disease) |> 
-  mutate(Set = "Train") |> 
-  bind_rows(medeca_test |> 
-              select(Sample, Disease) |> 
-              mutate(Set = "Test")) |> 
-  group_by(Disease, Set) |> 
-  count() |> 
-  group_by(Disease) |> 
-  mutate(total_n = sum(n)) |> 
-  mutate(Set = factor(Set, levels = c("Test", "Train"))) |>
-  ungroup() |> 
-  group_by(Disease) |> 
-  arrange(Disease, Set) |>
-  mutate(c = cumsum(n)) |> 
-  ungroup() |> 
-  arrange(Disease, Set) |> 
-  ggplot(aes(Disease, n, fill = (Set))) +
-  geom_col() +
-  geom_text(aes(label = n, y = total_n - c), vjust = -0.5, fontface = "bold") +
-  scale_fill_manual(values = c("#AF91A8", "#FDC593")) +
-  theme_hpa(angled = T) +
-  ggtitle("Samples for machine learning - MEDECA") +
-  xlab("Class")
-
-ggsave(savepath("disease_split.png"), h = 6, w = 4)
-
-ml_recipe <- 
-  recipe(Disease ~ ., data = medeca_train) |> 
-  update_role(Sample, new_role = "id") |> 
-  step_normalize(all_numeric()) |> 
-  step_nzv(all_numeric()) |> 
-  step_corr(all_numeric()) |> 
-  step_impute_knn(all_numeric()) 
-
-# Generate resamples
-set.seed(213)
-medeca_rs <- vfold_cv(medeca_train, v = 10, strata = Disease)
-
-# Define evaluation metrics for all workflows
-eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity)
-
-# Define control grid
-set.seed(213)
-ctrl <- control_grid(verbose = TRUE, 
-                     allow_par = TRUE,
-                     save_pred = TRUE, 
-                     parallel_over = "everything") 
+medeca_mortality_train <- training(medeca_split)
+medeca_mortality_test <- testing(medeca_split)
 
 
-# Tidymodels lasso multiclassification recipe
-glmnet_lasso_specs <-
-  logistic_reg() |>
-  set_mode("classification") |>
-  set_engine("glmnet") |>
-  set_args(penalty = tune(),
-           mixture = 1)
+# Run lasso pipeline
+ml_medeca_mortality <- 
+  do_lasso(variable = "Mortality",
+           case = "1", 
+           split_train = medeca_mortality_train, 
+           split_test = medeca_mortality_test) 
 
-# Set up lasso workflow
-glmnet_wflow <-
-  workflow() |> 
-  add_recipe(ml_recipe) |> 
-  add_model(glmnet_lasso_specs) 
+saveRDS(ml_medeca_mortality, savepath_data("ML", "ml_medeca_mortality.rds"))
 
-# Define hyperparameter tuning grid
-set.seed(213)
-glmnet_grid <-
-  glmnet_wflow |>
-  extract_parameter_set_dials() |>
-  grid_latin_hypercube(size = 30)
-
-# Hyperparameter tuning
-set.seed(213)
-glmnet_res <-
-  glmnet_wflow |>
-  tune_grid(
-    resamples = medeca_rs,
-    grid = glmnet_grid,
-    control = ctrl,
-    metrics = eval_metrics)
-
-#saveRDS(glmnet_res, "data/processed/ML_res/lasso_results_20240404.rds")
-
-# Explore results and select the best performing hyperparameter combination
-autoplot(glmnet_res)
-
-best_glmnet <- 
-  glmnet_res |> 
-  select_best("roc_auc")
-
-final_glmnet <- 
-  glmnet_wflow |> 
-  finalize_workflow(best_glmnet)
-
-final_glmnet_fit <- 
-  last_fit(final_glmnet, medeca_split)
-
-
-# ROC curve
-medeca_predictions <- 
-  final_glmnet_fit |> 
-  collect_predictions() 
-
-auc <- 
-  medeca_predictions |> 
-  roc_auc(Disease, .pred_0_Control) 
-
-roc_medeca <- 
-  medeca_predictions |> 
-  roc_curve(Disease, .pred_0_Control) |> 
-  autoplot() +
-  geom_text(aes(label = paste0("AUC = ", round(auc$.estimate, 3)), x = 0.75, y = 0.25), inherit.aes = F) +
-  theme_hpa() +
-  ggtitle("ROC curve - MEDECA")
-
-#ggsave(savepath("ROC_MEDECA.png"), h = 5, w = 5)
-
-# Confusion matrix
-cm <- 
-  final_glmnet_fit %>% 
-  collect_predictions() %>%
-  conf_mat(truth = Disease, estimate = .pred_class) 
-
-cm_medeca <- 
-  cm |> 
-  autoplot(type = "heatmap") +
-  theme_hpa()
-
-#ggsave(savepath("cm_MEDECA.png"), h = 5, w = 5)
-
-roc_medeca + cm_medeca
-ggsave(savepath("roc_cm_medeca.png"), h = 5, w = 10)
-
-
-# Probabilities
-medeca_predictions |> 
-  ggplot(aes(.pred_Cancer, fill = Disease)) +
-  geom_density(alpha = 0.7) +
-  scale_fill_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  xlab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA") +
-
-medeca_predictions |> 
-  ggplot(aes(Disease, .pred_Cancer, color = Disease)) +
-  geom_quasirandom(alpha = 0.7) +
-  geom_violin(fill = NA) + 
-  geom_hline(yintercept = 0.5, linetype = "dashed") +
-  scale_color_manual(values = c("Cancer" = "#E16C54", "Control" = "#A0CBC7")) + 
-  theme_hpa() +
-  ylab("Probability cancer") +
-  ggtitle("Probabilities - MEDECA")
-
-ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
-
-# Explore important proteins
-important_proteins <- 
-  final_glmnet_fit  |> 
-  extract_fit_parsnip() %>%
-  tidy() |> 
-  filter(term != "(Intercept)") |> 
-  arrange(-abs(estimate)) |> 
-  filter(abs(estimate) > 0)
-
-# Visualize protein rank
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa(axis_y = F) +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("139 lasso features - profile") +
-
-important_proteins |> 
-  mutate(sign = ifelse(estimate > 0, "positive", "negative")) |> 
-  head(30) |> 
-  ggplot(aes(abs(estimate), fct_reorder(term, abs(estimate)), fill = sign)) +
-  geom_col(alpha  = 0.8) +
-  theme_hpa() +
-  scale_fill_manual(values = c("#75B2E9", "#FE625E")) +
-  xlab("Model estimate") +
-  ylab("") +
-  ggtitle("Top 30 lasso features")
- 
-ggsave(savepath("lasso_features.png"), h = 8, w = 15)
-
-# Boxplot for top important proteins
-proteins <- 
-  important_proteins |> 
-  head(10) |> 
-  pull(term)
-
-data |> 
-  filter(Assay %in% proteins,
-         Sample %in% metadata$Sample) |> 
-  left_join(metadata, by = "Sample") |> 
-  mutate(Assay = factor(Assay, levels = proteins),
-         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
-  ggplot(aes(Cancer_detected, NPX, fill = Cancer_detected, color = Cancer_detected)) +
-  geom_quasirandom() +
-  geom_boxplot(alpha = 0.5, outlier.color = NA, color = "black") +
-  facet_grid(Cohort~Assay, scales = "free_y") +
-  scale_color_manual(values = c("yes" = "#E16C54", "no" = "#A0CBC7")) + 
-  scale_fill_manual(values = c("yes" = "#E16C54", "no" = "#A0CBC7")) + 
-  theme_hpa() +
-  ggtitle("Top 10 important proteins")
-
-ggsave(savepath("top10_important_proteins.png"), h = 7, w = 17)
+ml_medeca_mortality$important_proteins |> View()
 
 ```
 

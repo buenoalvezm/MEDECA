@@ -19,10 +19,11 @@ data <- import_df("data/processed/final_data/final_olink_data.csv")
 metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
 meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")   
+pancancer_markers <- read_excel("data/41467_2023_39765_MOESM7_ESM.xlsx")
 ```
 
 
-# Specific cancers
+# Select specific cancers
 
 ```{r}
 meta_medeca |> 
@@ -47,7 +48,6 @@ selected_samples <-
          Sample != "110") |> #Lymphoma + prostate cancer
   select(-Value)
 
-
 selected_samples_2 <- 
   meta_medeca |> 
   select(Sample, 
@@ -68,24 +68,22 @@ selected_samples_2 <-
 selected_samples |> 
   count(Cancer)
 
-selected_samples
+```
 
-selected_assays <- c("PAEP", "PRTG", "CEACAM5",
-                     "CXCL9", "CNTN5")
+# Plot markes
+
+## Top markers 
+
+```{r}
+selected_assays <- c("PAEP", 
+                     "PRTG", 
+                     "CEACAM5",
+                     "CXCL9", 
+                     "CNTN5")
 
 medeca_healthy <- 
   meta_medeca |> 
   filter(Disease_type == "Healthy")
-
-groups <- 
-  c("Lymfom",
-    "Myelom", 
-    "Lung",
-    "Neuroendocrine tumors",
-    "Pancreas or gall bladder or bile duct",
-    "Breast",
-    "Ovarian or tubar",
-    "Healthy")
 
 data |> 
   filter(Sample %in% c(selected_samples$Sample, medeca_healthy$Sample),
@@ -102,31 +100,12 @@ data |>
   theme_hpa(angled = T,
             axis_x = F)
 
-
 ggsave(savepath("examples_pan_cancer.pdf"), h = 3, w = 12)
-pal_groups <- c("#08585A",
-                "#66C2A5",
-                "#ADC74F",
-                "#FDB36A",
-                "#D7485A",
-                "#E8A29A",  
-                "#603479",
-                "grey")
-names(pal_groups) <- groups
+```
 
+## All pan-cancer markers 
 
-pal_groups_2 <- c("Lymfom" = "#08585A",
-                "Myelom" = "#66C2A5",
-                "Lung" = "#ADC74F",
-                #"Colorectal" = "",
-                #"Prostate" = "",
-                "Breast" = "#E8A29A",  
-                "Ovarian tubar" = "#603479")
-
-heatmap_pal <-
-  brewer.pal(9, name = "YlOrRd") %>% 
-  colorRampPalette()
-
+```{r}
 selected_pancancer_markers <- 
   pancancer_markers |> 
   filter(Cancer %in% c("DLBCL",
@@ -139,17 +118,11 @@ data_selected <-
   data |> 
   filter(Sample %in% selected_samples_2$Sample,
          Assay %in% selected_pancancer_markers$Protein) 
+```
 
-selected_umap <- 
-  do_umap(data = data_selected,
-        meta = selected_samples_2,
-        variable = "Cancer",
-        wide = F,
-        impute = T,
-        plots = T)
-selected_umap$pca_plot
+### Heatmap
 
-
+```{r}
 data_selected |> 
   group_by(Assay) |> 
   mutate(NPX = scales::rescale(NPX, to = c(0,1))) |> 
@@ -162,84 +135,23 @@ data_selected |>
            #clustering_method = "ward.D2",
            annotation_row = selected_samples |> column_to_rownames("Sample"),
            annotation_colors = list(Cancer = pal_groups))
-
 ```
 
-
-# Pan-cancer markers
+### UMAP
 
 ```{r}
+selected_umap <- 
+  do_umap(data = data_selected,
+        meta = selected_samples_2,
+        variable = "Cancer",
+        wide = F,
+        impute = T,
+        plots = T)
 
-# Read in file
-pancancer_markers <- read_excel("data/41467_2023_39765_MOESM7_ESM.xlsx")
-
-
-# Plot 83 markers across groups?
-data |> 
-  filter(Assay %in% c(pancancer_markers$Protein)) |> 
-  left_join(meta_combined, by = "Sample") |> 
-  filter(!is.na(Cancer)) |> 
-  ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
-  geom_quasirandom() +
-  geom_boxplot(fill = NA, outlier.color = NA, color = "black") +
-  facet_wrap(~Assay, scales = "free_y") +
-  theme_hpa()
-
-dat <- 
-  data |> 
-  filter(Assay %in% c(pancancer_markers$Protein)) |> 
-  left_join(meta_combined, by = "Sample") |> 
-  filter(!is.na(Cancer)) 
-
-ann <- 
-  dat |> 
-  distinct(Sample, Cohort, Cancer) |> 
-  column_to_rownames("Sample")
-
-library(pheatmap)
-dat |>
-  filter(Cohort == "MEDECA") |> 
-  select(Sample, Assay, NPX) |> 
-  pivot_wider(names_from = "Assay", values_from = "NPX") |> 
-  column_to_rownames("Sample") |> 
-  scale() |> 
-  pheatmap(annotation_row = ann)
-
-# PCA
-pca_data_medeca <- 
-  data |>
-  left_join(meta_combined |> 
-              select(Sample, Cohort), by = "Sample") |> 
-  filter(Cohort == "MEDECA") |> 
-  select(-Cohort) |> 
-  filter(Sample %in% meta_combined$Sample,
-         Assay %in% pancancer_markers$Protein) |> 
-  pivot_wider(names_from = "Assay", values_from = "NPX")  |>  
-  impute_values(ID = "Sample", wide_data = T) |> 
-  column_to_rownames("Sample") |> 
-  scale() |> 
-  t() |> 
-  do_pca()
-
-pca_data_medeca@scores |> 
-  as.data.frame() |> 
-  rownames_to_column("Sample") |> 
-  left_join(meta_combined, by = "Sample") |> 
-  ggplot(aes(PC1, PC2, color = Cancer)) +
-  geom_point(alpha = 0.7) +
-  #stat_ellipse(geom = "polygon", alpha = 0.3, aes(fill = Cancer), color = NA) +
-  scale_color_manual(values = pal_cancer) + 
-  scale_fill_manual(values = pal_cancer) +
-  ggtitle("MEDECA") +
-  theme_hpa()
-
-# Check if they are DE?
-
-# Model
-
-
-
+selected_umap$pca_plot
 ```
+
+
 
 # ML pan-cancer markers
 
@@ -476,6 +388,5 @@ data |>
   ggtitle("Top 10 important proteins")
 
 ggsave(savepath("top10_important_proteins.png"), h = 7, w = 17)
-
 ```
 

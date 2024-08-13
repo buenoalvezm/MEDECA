@@ -5,6 +5,18 @@
 
 # Packages for themes & palettes
 library(RColorBrewer)
+library(paletteer)
+
+# Levels 
+cancer_groups <- 
+  c("Lymfom",
+    "Myelom", 
+    "Lung",
+    "Neuroendocrine tumors",
+    "Pancreas or gall bladder or bile duct",
+    "Breast",
+    "Ovarian or tubar",
+    "Healthy")
 
 # Palettes
 pal_panel <- c("#28C7E3",
@@ -32,6 +44,28 @@ pal_group_3 <-
   c("Cancer" = "#E16C54", 
     "No diagnosis" = "#BBDABB",
     "Other diseases" = "#E9E7AB")
+
+pal_cancers <- c("#08585A",
+                 "#66C2A5",
+                 "#ADC74F",
+                 "#FDB36A",
+                 "#D7485A",
+                 "#E8A29A",  
+                 "#603479",
+                 "grey")
+names(pal_cancers) <- cancer_groups
+
+pal_cancers_overlap <- c("Lymfom" = "#08585A",
+                         "Myelom" = "#66C2A5",
+                         "Lung" = "#ADC74F",
+                         "Breast" = "#E8A29A",  
+                         "Ovarian tubar" = "#603479")
+
+pal_red <- rev(colorRampPalette(brewer.pal(6, "Reds"))(10))
+
+heatmap_pal <-
+  brewer.pal(9, name = "YlOrRd") %>% 
+  colorRampPalette()
 
 # HPA theme
 theme_hpa <- 

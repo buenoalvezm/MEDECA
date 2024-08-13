@@ -46,7 +46,7 @@ medeca_split <-
 medeca_train <- training(medeca_split)
 medeca_test <- testing(medeca_split)
 
-
+# Run lasso pipeline
 ml_medeca <- 
   do_lasso(variable = "Cancer",
            case = "Yes", 
@@ -56,8 +56,11 @@ ml_medeca <-
 saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
 
 ml_medeca$important_proteins |> View()
+```
 
+## Probabilities
 
+```{r}
 prob_medeca <- 
   ml_medeca$predictions |> 
   rename(Probability_case = .pred_Case) |> 
@@ -78,7 +81,11 @@ prob_medeca <-
   scale_y_continuous(breaks = c(0, 0.5, 1)) +
   xlab("") +
   theme_hpa()
+```
 
+## Important proteins
+
+```{r}
 medeca_de_up <- 
   medeca_de |> 
   filter(sig != "not significant") |> 
@@ -104,8 +111,11 @@ ml_medeca$important_proteins |>
         legend.position = "top")
 
 ggsave(savepath("top_ml_markers.pdf"), h = 8, w = 2.5)
- 
+```
 
+## Top proteins 
+
+```{r}
 plot_ml <- 
   ml_medeca$important_proteins |> 
   head(5)
@@ -136,7 +146,41 @@ medeca_de |>
   theme_hpa()
 
 ggsave(savepath("ML_DE.pdf"), h = 5, w = 5)
+```
 
+## ROC & CM
+
+```{r}
+# Confusion matrix
+cm <- 
+  final_glmnet_fit %>% 
+  collect_predictions() %>%
+  conf_mat(truth = Disease, estimate = .pred_class) 
+
+cm_medeca <- 
+  cm |> 
+  autoplot(type = "heatmap") +
+  theme_hpa()
+
+# ROC curve
+medeca_predictions <- 
+  allvos_fit |> 
+  collect_predictions() 
+
+auc <- 
+  medeca_predictions |> 
+  roc_auc(Disease, .pred_0_Control) 
+
+roc_medeca <- 
+  medeca_predictions |> 
+  roc_curve(Disease, .pred_0_Control) |> 
+  autoplot() +
+  geom_text(aes(label = paste0("AUC = ", round(auc$.estimate, 3)), x = 0.75, y = 0.25), inherit.aes = F) +
+  theme_hpa() +
+  ggtitle("ROC curve - MEDECA")
+
+roc_medeca + cm_medeca
+ggsave(savepath("roc_cm_medeca.png"), h = 5, w = 10)
 ```
 
 
@@ -166,8 +210,18 @@ allvos_dat <-
   mutate(Pred = ifelse(.pred_Case > 0.5, "Case", "Control"),
          Cancer = ml_data_allvos$Class) 
 
+# This will automatically `bake()` the recipe on `testing`,
+allvos_fit <- fit(ml_medeca$final_workflow, ml_data_allvos)
 
+##########
 
+allvos_fit_2 <- last_fit(ml_medeca$final_glmnet, ml_data_allvos)
+allvos_fit_2 <- predict(ml_medeca$final_workflow |> extract_workflow(), ml_data_allvos, type = "prob")
+```
+
+## Probabilities
+
+```{r}
 prob_allvos <- 
   allvos_fit |> 
   rename(Probability_case = .pred_Case) |> 
@@ -188,19 +242,14 @@ prob_allvos <-
   scale_y_continuous(breaks = c(0, 0.5, 1)) +
   xlab("") +
   theme_hpa(axis_y = F)
-  
-prob_medeca + prob_allvos
-ggsave(savepath("probabilities_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
-
-filter(Cancer == Pred)
-
-# This will automatically `bake()` the recipe on `testing`,
-allvos_fit <- fit(ml_medeca$final_workflow, ml_data_allvos)
+```
 
 
+# Combined
 
+## ROC 
 
-# ROC curves
+```{r}
 auc_allvos <- 
   allvos_dat |> 
   roc_auc(truth = Cancer, .pred_Case)
@@ -266,49 +315,11 @@ ml_medeca$roc_curve |>
   theme(legend.position = "top")
 
 ggsave(savepath("ROC_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
+```
 
-##########
+## Probabilities
 
-allvos_fit_2 <- last_fit(ml_medeca$final_glmnet, ml_data_allvos)
-allvos_fit_2 <- predict(ml_medeca$final_workflow |> extract_workflow(), ml_data_allvos, type = "prob")
-
-# ROC curve
-medeca_predictions <- 
-  allvos_fit |> 
-  collect_predictions() 
-
-auc <- 
-  medeca_predictions |> 
-  roc_auc(Disease, .pred_0_Control) 
-
-roc_medeca <- 
-  medeca_predictions |> 
-  roc_curve(Disease, .pred_0_Control) |> 
-  autoplot() +
-  geom_text(aes(label = paste0("AUC = ", round(auc$.estimate, 3)), x = 0.75, y = 0.25), inherit.aes = F) +
-  theme_hpa() +
-  ggtitle("ROC curve - MEDECA")
-
-#ggsave(savepath("ROC_MEDECA.png"), h = 5, w = 5)
-
-# Confusion matrix
-cm <- 
-  final_glmnet_fit %>% 
-  collect_predictions() %>%
-  conf_mat(truth = Disease, estimate = .pred_class) 
-
-cm_medeca <- 
-  cm |> 
-  autoplot(type = "heatmap") +
-  theme_hpa()
-
-#ggsave(savepath("cm_MEDECA.png"), h = 5, w = 5)
-
-roc_medeca + cm_medeca
-ggsave(savepath("roc_cm_medeca.png"), h = 5, w = 10)
-
-
-# Probabilities
+```{r}
 medeca_predictions |> 
   ggplot(aes(.pred_Cancer, fill = Disease)) +
   geom_density(alpha = 0.7) +
@@ -328,7 +339,6 @@ medeca_predictions |>
   ggtitle("Probabilities - MEDECA")
 
 ggsave(savepath("prob_medeca.png"), h = 5, w = 10)
-
 ```
 
 # Markers

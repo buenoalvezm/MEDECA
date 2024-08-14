@@ -89,12 +89,21 @@ meta_medeca <-
 ## ALLVOS 
 
 ```{r}
-duplicated_allvos <- 
-  metadata_allvos_controls |> 
-  count(`Sample ID`) |> 
-  arrange(-n) |> 
-  filter(n > 1) |> 
-  pull(`Sample ID`)
+# duplicated_allvos <- 
+#   metadata_allvos_controls |> 
+#   count(`Sample ID`) |> 
+#   arrange(-n) |> 
+#   filter(n > 1) |> 
+#   pull(`Sample ID`)
+
+#colnames(metadata_allvos)
+
+keep_columns_allvos <- c("Carcinoma", "Germinal cell tumors", "SCC", "Urothelial", "Neuroendocrine tumors",
+                  "Adenocarcinoma", "HCC", "Kidney", "Adrenal", "Prostate", "Lung", "Breast", "Thyroid",
+                  "Gynecologic","Ovarian", "Colorectal", "Urine bladder", "Merkel cell carcinoma",
+                  "Small cell parotid", "Pancreas,/gall bladder/bile duct", "Ventricle", 
+                  "Other adenocarcinoma", "Sarcoma", "Lymphoma",
+                  "Melanoma", "Myeloma", "CLL", "MDS MPN", "AML")
 
 meta_allvos <- 
   metadata_allvos |>
@@ -103,9 +112,8 @@ meta_allvos <-
   filter(`Ongoing cancer` != 1,
          `Lost to follow up` != 1,
          StudyID %in% data$Sample) |> 
-  select(Sample = StudyID, Age, Sex, Cancer) |> 
+  select(Sample = StudyID, Age, Sex, Cancer, keep_columns_allvos) |> 
   left_join(metadata_allvos_controls |>
-               filter(!(`Sample ID` %in% duplicated_allvos & Category != "Cancer")) |> 
               mutate(`Sample ID` = as.character(`Sample ID`)) |> 
               select(Sample = `Sample ID`, Disease_type = Category), by = "Sample") |> 
   mutate(Cancer = ifelse(Cancer == 1, "Yes", "No"),
@@ -126,24 +134,25 @@ metadata_allvos |>
 metadata_allvos_controls |> 
   filter(!`Sample ID` %in% metadata_allvos$StudyID)
 
+# 2 ongoing cancer and 1 lost to follow up
 metadata_allvos |> 
   filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
 
-#Check patient ID missmatch
-metadata_allvos |> 
-  mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
-  filter(`Lost to follow up` == 0,
-         `Ongoing cancer` != 1) |> 
-#  distinct(StudyID) |> 
-  filter(StudyID %in% as.numeric(data$Sample)) |> 
-  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
-
-metadata_allvos_controls |>
-  filter(`Sample ID` %in% duplicated_allvos)
+# #Check patient ID missmatch
+# metadata_allvos |> 
+#   mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
+#   filter(`Lost to follow up` == 0,
+#          `Ongoing cancer` != 1) |> 
+# #  distinct(StudyID) |> 
+#   filter(StudyID %in% as.numeric(data$Sample)) |> 
+#   filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
+# 
+# metadata_allvos_controls |>
+#   filter(`Sample ID` %in% duplicated_allvos)
 
 meta_allvos |> 
-  filter(is.na(Disease_type))
-  #distinct(Disease_type)
+  #filter(is.na(Disease_type))
+  distinct(Category)
 
 ```
 

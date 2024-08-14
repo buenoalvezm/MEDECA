@@ -21,7 +21,51 @@ meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")  
 ```
 
-# Mortality classification 
+# Differential expression
+
+```{r}
+# Prepare data
+limma_meta_mortality <- 
+  meta_medeca |> 
+  select(Sample, Mortality, Age, Sex) |> 
+  mutate(Mortality = ifelse(Mortality == 1, "Yes", "No"))
+  
+limma_data_mortality <- 
+  data |> 
+  filter(Sample %in% limma_meta_mortality$Sample) |> 
+  pivot_wider(names_from = Assay, 
+              values_from = NPX) 
+
+# Run differential expression analyses
+mortality_de <-
+  do_limma(data_wide = limma_data_mortality, 
+           metadata = limma_meta_mortality,
+           variable = "Mortality", 
+           case = "Yes",
+           correct = T) 
+
+saveRDS(mortality_de, savepath_data("DE", "de_medeca_mortality.rds"))
+
+volcano_medeca <- plot_volcano(mortality_de) + ggtitle("MEDECA - Mortality")
+volcano_medeca
+ggsave(savepath("volcano_medeca_mortality.png"), w = 5, h = 5)
+```
+## Check markers
+
+### Boxplots
+
+```{r}
+
+```
+
+### Heatmap
+
+```{r}
+
+```
+
+
+# Classification 
 
 ```{r}
 # Prepare ML data
@@ -54,7 +98,9 @@ ml_medeca_mortality <-
 saveRDS(ml_medeca_mortality, savepath_data("ML", "ml_medeca_mortality.rds"))
 ```
 
-# Check markers
+## Check markers
+
+### Boxplots
 
 ```{r}
 ml_medeca_mortality$important_proteins
@@ -83,14 +129,41 @@ plot_beeswarm(data = data |>
 
 ggsave(savepath("top_proteins_mortality.png"), h = 3, w = 12)
 ```
+### Heatmap
 
-# Performance
+```{r}
+mortality_proteins <- 
+  ml_medeca_mortality$important_proteins |> 
+  head(10) |> 
+  pull(term)
+
+ann <- 
+  meta_medeca |>
+  select(Sample, Mortality, Cancer) |> 
+  column_to_rownames("Sample") 
+data |> 
+  filter(Sample %in% meta_medeca$Sample, 
+         Assay %in% mortality_proteins) |> 
+  pivot_wider(names_from = "Assay", 
+              values_from = "NPX") |> 
+  column_to_rownames("Sample") |>
+  t() |> 
+  scale() |> 
+  pheatmap(show_colnames = F,
+           clustering_method = "ward.D2",
+           annotation_col = ann)
+```
+
+## Performance
 
 ```{r}
 ml_medeca_mortality$performance
 
 plot_roc_curve(roc = ml_medeca_mortality$roc_curve,
                auc = ml_medeca_mortality$performance$.estimate)
+ml_medeca_mortality$confusion_matrix |> 
+  autoplot(type = "heatmap") +
+  theme_hpa()
 ```
 
 

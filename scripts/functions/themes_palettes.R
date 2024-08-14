@@ -16,7 +16,7 @@ cancer_groups <-
     "Pancreas or gall bladder or bile duct",
     "Breast",
     "Ovarian or tubar",
-    "Healthy")
+    "No diagnosis")
 
 # Palettes
 pal_panel <- c("#28C7E3",

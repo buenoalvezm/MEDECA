@@ -9,17 +9,17 @@ editor_options:
 
 ```{r setup, include=FALSE}
 # Read functions & packages
-source("scripts/functions/themes_palettes.R")
 source("scripts/functions/functions_utility.R")
+source("scripts/functions/themes_palettes.R")
 source("scripts/functions/functions_analyses.R")
 source("scripts/functions/functions_visualization.R")
 
 # Read data
 data <- import_df("data/processed/final_data/final_olink_data.csv")  
-metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
-meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
-meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")   
-pancancer_markers <- read_excel("data/41467_2023_39765_MOESM7_ESM.xlsx")
+metadata <- import_df("data/processed/final_data/combined_metadata.csv")
+meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")
+meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")
+pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
 ```
 
 
@@ -67,7 +67,6 @@ selected_samples_2 <-
 
 selected_samples |> 
   count(Cancer)
-
 ```
 
 # Plot markes
@@ -83,20 +82,20 @@ selected_assays <- c("PAEP",
 
 medeca_healthy <- 
   meta_medeca |> 
-  filter(Disease_type == "Healthy")
+  filter(Disease_type == "No diagnosis")
 
 data |> 
   filter(Sample %in% c(selected_samples$Sample, medeca_healthy$Sample),
          Assay %in% selected_assays) |> 
   left_join(selected_samples, by = "Sample") |> 
-  mutate(Cancer = ifelse(is.na(Cancer), "Healthy", Cancer),
-         Cancer = factor(Cancer, levels = groups)) |> 
+  mutate(Cancer = ifelse(is.na(Cancer), "No diagnosis", Cancer),
+         Cancer = factor(Cancer, levels = cancer_groups)) |> 
   ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
   geom_quasirandom(alpha = 0.8, size = 1) +
   geom_boxplot(alpha = 0.5, outlier.color = NA) +
   facet_wrap(~Assay, scales = "free_y", nrow = 1) +
-  scale_color_manual(values = pal_groups) +
-  scale_fill_manual(values = pal_groups) +
+  scale_color_manual(values = pal_cancers) +
+  scale_fill_manual(values = pal_cancers) +
   theme_hpa(angled = T,
             axis_x = F)
 
@@ -153,29 +152,43 @@ selected_umap$pca_plot
 
 
 
-# ML pan-cancer markers
+# Classification based on pan-cancer markers
 
 ```{r}
 # Prepare ML data
-ml_data <- 
+ml_data_pancancer <- 
   data |> 
-  left_join(meta_combined |> 
+  left_join(metadata |> 
               select(Sample, Cancer, Cohort), by = "Sample") |> 
   filter(Cohort == "MEDECA") |> 
-  mutate(Disease = ifelse(Cancer == "Yes", "0_Cancer", "1_Control")) |> 
-  select(Sample, Disease, Assay, NPX) |> 
+  #mutate(Disease = ifelse(Cancer == "Yes", "0_Cancer", "1_Control")) |> 
+  select(Sample, Cancer, Assay, NPX) |> 
   filter(Assay %in% pancancer_markers$Protein) |> 
   pivot_wider(names_from = Assay,
               values_from = NPX) 
 
 # Split data 
 set.seed(213)
-medeca_split <-
-  ml_data |> 
-  initial_split(prop = 0.7, strata = Disease)
+medeca_split_pancancer <-
+  ml_data_pancancer |> 
+  initial_split(prop = 0.7, strata = Cancer)
 
-medeca_train <- training(medeca_split)
-medeca_test <- testing(medeca_split)
+medeca_pancancer_train <- training(medeca_split_pancancer)
+medeca_pancancer_test <- testing(medeca_split_pancancer)
+
+# Run lasso pipeline for selected proteins 
+ml_medeca_pancancer <- 
+  do_lasso(variable = "Cancer",
+           case = "Yes", 
+           split_train = medeca_pancancer_train, 
+           split_test = medeca_pancancer_test) 
+
+saveRDS(ml_medeca_pancancer, savepath_data("ML", "ml_medeca_pancancer.rds"))
+
+ml_medeca_pancancer$important_proteins
+ml_medeca_pancancer$performance
+
+
 
 # Barplot
 medeca_train |> 

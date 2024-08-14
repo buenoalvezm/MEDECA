@@ -227,3 +227,28 @@ plot_raincloud_cohorts <- function(proteins) {
     theme_hpa()
   
 }
+
+plot_beeswarm_pancancer <- function(protein) {
+  
+  cancer <- 
+    pancancer_markers |> 
+    filter(Protein == protein) |> 
+    pull(Cancer)
+  
+  data |> 
+    filter(Sample %in% c(selected_samples$Sample, 
+                         medeca_healthy$Sample),
+           Assay == protein) |> 
+    left_join(selected_samples, by = "Sample") |>
+    mutate(Cancer = ifelse(is.na(Cancer), "No diagnosis", Cancer),
+           Cancer = factor(Cancer, levels = cancer_groups)) |> 
+    ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
+    geom_quasirandom(alpha = 0.8, size = 1) +
+    geom_boxplot(alpha = 0.5, outlier.color = NA) +
+    facet_wrap(~Assay, scales = "free_y", nrow = 1) +
+    scale_color_manual(values = pal_cancers) +
+    scale_fill_manual(values = pal_cancers) +
+    theme_hpa(angled = T,
+              axis_x = F) +
+    ggtitle(paste0(protein, " - ", cancer))
+}

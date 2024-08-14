@@ -48,7 +48,7 @@ keep_columns <- c("Patient number", "Sex 1 male", "Age", "CUP", "Ongoing cancer 
                   "Gynecologic","Ovarian or tubar", "Colorectal", "Urine bladder", "Merkel cell carcinoma",
                   "Small cell parotid", "Pancreas or gall bladder or bile duct", "Ventricle", 
                   "Other adenocarcinoma", "Other carcinoma such as mesothelioma", "Sarkom", "Lymfom",
-                  "Melanom", "Myelom", "MDS MPN", "Other cancer")
+                  "Melanom", "Myelom", "MDS MPN", "Other cancer", "Mortality")
 
 meta_medeca <- 
   metadata_medeca |>

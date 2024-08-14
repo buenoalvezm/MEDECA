@@ -9,15 +9,15 @@ editor_options:
 
 ```{r setup, include=FALSE}
 # Read functions & packages
-source("scripts/functions/themes_palettes.R")
 source("scripts/functions/functions_utility.R")
 source("scripts/functions/functions_analyses.R")
 source("scripts/functions/functions_visualization.R")
+source("scripts/functions/themes_palettes.R")
 
 # Read data
 data <- import_df("data/processed/final_data/final_olink_data.csv")  
 metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
-meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
+meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv") 
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")  
 ```
 
@@ -25,30 +25,29 @@ meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")
 
 ```{r}
 # Prepare ML data
-ml_data <- 
+ml_mortality_data <- 
   data |>
-  filter(Sample %in% as.character(metadata_medeca$`Patient number`)) |> 
-  left_join(metadata_medeca |> 
-              mutate(Sample = as.character(`Patient number`)) |> 
+  filter(Sample %in% meta_medeca$Sample) |> 
+  left_join(meta_medeca |> 
               select(Sample, Mortality), by = "Sample") |> 
-  select(Sample, Mortality, Assay, NPX) |> 
+  mutate(Mortality = ifelse(Mortality == 1, "Yes", "No")) |> 
   pivot_wider(names_from = Assay,
               values_from = NPX) 
 
 # Split data 
 set.seed(213)
-medeca_split <-
-  ml_data |> 
-  initial_split(prop = 0.7, strata = Disease)
+medeca_mortality_split <-
+  ml_mortality_data |> 
+  initial_split(prop = 0.7, strata = Mortality)
 
-medeca_mortality_train <- training(medeca_split)
-medeca_mortality_test <- testing(medeca_split)
+medeca_mortality_train <- training(medeca_mortality_split)
+medeca_mortality_test <- testing(medeca_mortality_split)
 
 
 # Run lasso pipeline
 ml_medeca_mortality <- 
   do_lasso(variable = "Mortality",
-           case = "1", 
+           case = "Yes", 
            split_train = medeca_mortality_train, 
            split_test = medeca_mortality_test) 
 

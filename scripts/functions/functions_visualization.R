@@ -193,9 +193,11 @@ plot_beeswarm_cohorts <- function(proteins,
                                   data,
                                   metadata,
                                   variable,
-                                  palette) {
+                                  palette,
+                                  angled = F) {
   data |> 
-    filter(Assay %in% proteins) |> 
+    filter(Assay %in% proteins,
+           Sample %in% metadata$Sample) |> 
     left_join(metadata |> 
                 select(Sample, !!sym(variable), Cohort), by = "Sample") |> 
     mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
@@ -211,7 +213,7 @@ plot_beeswarm_cohorts <- function(proteins,
     facet_grid(Assay~Cohort, scales = "free") +
     scale_color_manual(values = palette) +
     scale_fill_manual(values = palette) +
-    theme_hpa()
+    theme_hpa(angled = angled)
   
 }
 

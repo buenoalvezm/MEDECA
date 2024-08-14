@@ -32,18 +32,19 @@ pal_cancer <- c("Yes" = "#E16C54", "No" = "#A0CBC7")
 
 pal_sex <- c("Male" = "#3E4A57", "Female" = "#CEC6B3")
 
-pal_group <- 
+pal_disease_type<- 
   c("Cancer" = "#E16C54", 
     "No diagnosis" = "#BBDABB", 
-    "Autoimmune" = "#E4A6B0", 
-    "Infectious" = "#E3D0A6", 
-    "Inflammatory" = "#7A76A9", 
-    "Other" = "grey")
+    "Autoimmune" = "#E9E7AB", 
+    "Infectious" = "#E9E7AB", 
+    "Inflammatory" = "#E9E7AB", 
+    "Other" = "#E9E7AB")
 
-pal_group_3 <- 
+pal_category <- 
   c("Cancer" = "#E16C54", 
     "No diagnosis" = "#BBDABB",
     "Other diseases" = "#E9E7AB")
+
 
 pal_cancers <- c("#08585A",
                  "#66C2A5",
@@ -68,7 +69,7 @@ pal_binary <- c("Yes" = "red",
 
 pal_heatmap <-
   brewer.pal(9, name = "YlOrRd") |>  
-  colorRampPalette()
+  #colorRampPalette()
 
 # HPA theme
 theme_hpa <- 

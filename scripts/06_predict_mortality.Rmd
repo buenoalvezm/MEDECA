@@ -61,7 +61,21 @@ ggsave(savepath("volcano_medeca_mortality.png"), w = 5, h = 5)
 ### Heatmap
 
 ```{r}
+mortality_proteins_de <- 
+  mortality_de |> 
+  head(50) |> 
+  pull(Assay)
 
+plot_heatmap(data = data,
+             proteins = mortality_proteins_de,
+             metadata = meta_medeca,
+             variable = "Mortality") |> 
+  as.ggplot() +
+  ggtitle("Top 50 differentially expressed") +
+  theme(plot.title = element_text(face = "bold",
+                                  hjust = 0.5))
+
+ggsave(savepath("heatmap_mortality_de.png"), h = 8, w = 10)
 ```
 
 
@@ -137,21 +151,13 @@ mortality_proteins <-
   head(10) |> 
   pull(term)
 
-ann <- 
-  meta_medeca |>
-  select(Sample, Mortality, Cancer) |> 
-  column_to_rownames("Sample") 
-data |> 
-  filter(Sample %in% meta_medeca$Sample, 
-         Assay %in% mortality_proteins) |> 
-  pivot_wider(names_from = "Assay", 
-              values_from = "NPX") |> 
-  column_to_rownames("Sample") |>
-  t() |> 
-  scale() |> 
-  pheatmap(show_colnames = F,
-           clustering_method = "ward.D2",
-           annotation_col = ann)
+plot_heatmap(data = data,
+             proteins = mortality_proteins,
+             metadata = meta_medeca,
+             variable = "Mortality") |> 
+  as.ggplot()
+
+ggsave(savepath("heatmap_mortality_ml.png"), h = 3, w = 10)
 ```
 
 ## Performance

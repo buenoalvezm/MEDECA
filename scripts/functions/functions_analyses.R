@@ -104,7 +104,9 @@ do_lasso <-
         step_normalize(all_numeric_predictors()) |> 
         step_nzv(all_numeric_predictors()) |> 
         step_corr(all_numeric_predictors()) |> 
-        step_impute_knn(all_numeric_predictors()) 
+        step_impute_knn(all_numeric_predictors()) |> 
+        step_select_roc(all_numeric_predictors(), outcome = "Class", threshold = 0.75) 
+      
       
     } else {
       ml_recipe <- 
@@ -114,12 +116,11 @@ do_lasso <-
         step_normalize(all_numeric_predictors()) |> 
         step_nzv(all_numeric_predictors()) |> 
         step_corr(all_numeric_predictors()) |> 
-        step_impute_knn(all_numeric_predictors()) |> 
-        step_select_roc(all_numeric_predictors(), outcome = "Class", threshold = 0.75) 
-      
+        step_impute_knn(all_numeric_predictors()) 
     }
     
-    #a <- prep(ml_recipe, data = training_dat)
+    a <- prep(ml_recipe, data = training_dat)
+    a$template
     
     # LASSO model specifications
     glmnet_specs <- 

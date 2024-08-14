@@ -189,14 +189,18 @@ plot_volcano <- function(de_results) {
 }
 
 # Function to generate a beesarm plot in MEDECA/ALLVOS for selected proteins
-plot_beeswarm_cohorts <- function(proteins) {
+plot_beeswarm_cohorts <- function(proteins,
+                                  data,
+                                  metadata,
+                                  variable,
+                                  palette) {
   data |> 
     filter(Assay %in% proteins) |> 
     left_join(metadata |> 
-                select(Sample, Cancer, Cohort), by = "Sample") |> 
+                select(Sample, !!sym(variable), Cohort), by = "Sample") |> 
     mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
-           Assay = factor(Assay, levels = top_proteins)) |> 
-    ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
+           Assay = factor(Assay, levels = proteins)) |> 
+    ggplot(aes(!!sym(variable), NPX, fill = !!sym(variable), color = !!sym(variable))) +
     geom_quasirandom(size = 0.5) +
     geom_boxplot(alpha = 0.5, outlier.color = NA) +
     stat_summary(fun = "median",
@@ -205,8 +209,8 @@ plot_beeswarm_cohorts <- function(proteins) {
                  colour = "grey20",
                  show.legend = F) +
     facet_grid(Assay~Cohort, scales = "free") +
-    scale_color_manual(values = pal_cancer) +
-    scale_fill_manual(values = pal_cancer) +
+    scale_color_manual(values = palette) +
+    scale_fill_manual(values = palette) +
     theme_hpa()
   
 }
@@ -258,7 +262,8 @@ plot_beeswarm <- function(data,
                           metadata,
                           proteins,
                           variable,
-                          palette) {
+                          palette,
+                          n_rows = 1) {
 
   dat <- 
     data |> 
@@ -288,12 +293,69 @@ plot_beeswarm <- function(data,
   } else {
     final_plot <- 
       beeswarm_plot +
-      facet_wrap(~Assay, scales = "free_y", nrow = 1) 
+      facet_wrap(~Assay, scales = "free_y", nrow = n_rows) 
   }
   
   return(final_plot)
 }
 
+plot_heatmap <-
+  function(data,
+           proteins,
+           metadata,
+           variable) {
+    ann <-
+      meta_medeca |>
+      select(Sample,!!sym(variable)) |>
+      column_to_rownames("Sample")
+    
+    data |>
+      filter(Sample %in% metadata$Sample,
+             Assay %in% proteins) |>
+      group_by(Assay) |> 
+      mutate(NPX = scales::rescale(NPX, to = c(0:1))) |> 
+      pivot_wider(names_from = "Assay",
+                  values_from = "NPX") |>
+      column_to_rownames("Sample") |>
+      #scale() |>
+      t() |>
+      pheatmap(
+        show_colnames = F,
+        clustering_method = "ward.D2",
+        color = pal_heatmap(100),
+        annotation_col = ann
+      )
+  }
+
+plot_lollipop <- function(protein_list) {
+  
+  medeca_de_prots <- 
+    medeca_de |> 
+    filter(sig != "not significant")
+  
+  protein_list |>
+    mutate(Pan_cancer_marker = ifelse(term %in% pancancer_markers$Protein, "Yes", "No"),
+           DE = ifelse(term %in% medeca_de_prots$Assay, "Yes", "No")) |>
+    ggplot(aes(fct_reorder(term, abs(estimate)), abs(estimate), color = DE)) +
+    geom_segment(aes(
+      x = fct_reorder(term, abs(estimate)),
+      xend = fct_reorder(term, abs(estimate)),
+      y = 0,
+      yend = abs(estimate)
+    )) +
+    geom_point() +
+    coord_flip() +
+    theme_hpa(angled = T) +
+    xlab("") +
+    ylab("Model estimate") +
+    scale_color_manual(values = c("grey90", "grey30")) +
+    theme(
+      axis.text.y = element_text(size = 9),
+      axis.text.x = element_text(size = 9),
+      axis.ticks.y = element_blank(),
+      legend.position = "top"
+    )
+}
 plot_roc_curve <- function(roc,
                            auc) {
   roc |> 

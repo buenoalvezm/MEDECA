@@ -19,12 +19,15 @@ data <- import_df("data/processed/final_data/final_olink_data.csv")
 metadata <- import_df("data/processed/final_data/combined_metadata.csv")  
 meta_medeca <- import_df("data/processed/final_data/medeca_metadata.csv")  
 meta_allvos <- import_df("data/processed/final_data/allvos_metadata.csv")  
+pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
+medeca_de <- readRDS(savepath_data("DE", "de_medeca.rds"))
 ```
 
 
 
 # MEDECA
 
+## Prepare data
 
 ```{r}
 # Prepare ML data
@@ -45,7 +48,12 @@ medeca_split <-
 
 medeca_train <- training(medeca_split)
 medeca_test <- testing(medeca_split)
+```
 
+
+## All proteins
+
+```{r}
 # Run lasso pipeline
 ml_medeca <- 
   do_lasso(variable = "Cancer",
@@ -55,7 +63,54 @@ ml_medeca <-
 
 saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
 
-ml_medeca$important_proteins |> View()
+ml_medeca$important_proteins 
+ml_medeca$performance
+```
+
+## Proteins with NPX diference > 1
+
+```{r}
+# Select proteins with >1 NPX difference between cases and controls
+mean_protein_levels <- 
+  data |> 
+  filter(Sample %in% medeca_train$Sample) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Cancer)) |> 
+  group_by(Assay, Cancer) |> 
+  summarize(avg_NPX = mean(NPX)) 
+
+diff_mean_protein_levels <- 
+  mean_protein_levels |> 
+  pivot_wider(names_from = Cancer,
+              values_from = avg_NPX) |> 
+  mutate(diff_NPX = Yes - No) |> 
+  arrange(-abs(diff_NPX))
+
+selected_proteins <- 
+  diff_mean_protein_levels |> 
+  filter(abs(diff_NPX) > 0.5) |> 
+  pull(Assay)
+
+# Subset proteins 
+medeca_selected_train <- 
+  medeca_train |> 
+  select(Sample, selected_proteins, Cancer)
+
+medeca_selected_test <- 
+  medeca_test |> 
+  select(Sample, selected_proteins, Cancer)
+
+# Run lasso pipeline for selected proteins 
+ml_medeca_selected <- 
+  do_lasso(variable = "Cancer",
+           case = "Yes", 
+           split_train = medeca_selected_train, 
+           split_test = medeca_selected_test) 
+
+saveRDS(ml_medeca_selected, savepath_data("ML", "ml_medeca_selected.rds"))
+
+ml_medeca_selected$important_proteins 
+ml_medeca_selected$performance
 ```
 
 ## Probabilities

@@ -252,3 +252,44 @@ plot_beeswarm_pancancer <- function(protein) {
               axis_x = F) +
     ggtitle(paste0(protein, " - ", cancer))
 }
+
+
+plot_beeswarm <- function(data,
+                          metadata,
+                          proteins,
+                          variable,
+                          palette) {
+
+  dat <- 
+    data |> 
+    filter(Assay %in% proteins) |> 
+    mutate(Assay = factor(Assay, levels = proteins)) |> 
+    left_join(metadata, by = "Sample") 
+  
+  beeswarm_plot <- 
+    dat |> 
+    ggplot(aes(!!sym(variable), NPX, color = !!sym(variable), fill = !!sym(variable))) +
+    geom_quasirandom(alpha = 0.8, size = 1) +
+    geom_boxplot(alpha = 0.5, outlier.color = NA) +
+    stat_summary(fun = "median",
+                 geom = "crossbar", 
+                 width = 0.2,
+                 colour = "grey20",
+                 show.legend = F) +
+    scale_color_manual(values = palette) +
+    scale_fill_manual(values = palette) +
+    theme_hpa(angled = T,
+              axis_x = F) 
+  
+  if(length(proteins) == 1) {
+    final_plot <- 
+      beeswarm_plot +
+      ggtitle(proteins)
+  } else {
+    final_plot <- 
+      beeswarm_plot +
+      facet_wrap(~Assay, scales = "free_y", nrow = 1) 
+  }
+  
+  return(final_plot)
+}

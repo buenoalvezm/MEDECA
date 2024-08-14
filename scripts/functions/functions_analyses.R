@@ -359,4 +359,112 @@ do_lasso_multiclass <-
                 "important_proteins" = important_proteins))
   }
 
+do_ora <- function(protein_list,
+                   database = c("KEGG", "GO", "Reactome"),
+                   background = NULL,
+                   pval_lim = 0.05) {
+  database <- match.arg(database)
+  
+  if (is.null(background)) {
+    message("No background provided. When working with Olink data it is recommended to use background.")
+  }
+  
+  # From gene name to ENTREZID
+  protein_conversion <- clusterProfiler::bitr(protein_list,
+                                              fromType = "SYMBOL",
+                                              toType = "ENTREZID",
+                                              OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+  
+  protein_list <- protein_conversion |> dplyr::pull(ENTREZID) |> unique()
+  
+  if (!is.null(background)) {
+    background <- clusterProfiler::bitr(background,
+                                        fromType = "SYMBOL",
+                                        toType = "ENTREZID",
+                                        OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+    
+    background <- background |> dplyr::pull(ENTREZID) |> unique()
+  }
+  
+  if (database == "KEGG") {
+    # Perform KEGG enrichment analysis
+    enrichment <- clusterProfiler::enrichKEGG(gene = protein_list,
+                                              organism = "hsa",
+                                              pvalueCutoff = pval_lim,
+                                              universe = background)
+  } else if (database == "GO") {
+    # Perform GO enrichment analysis
+    enrichment <- clusterProfiler::enrichGO(gene = protein_list,
+                                            OrgDb = org.Hs.eg.db::org.Hs.eg.db,
+                                            ont = "BP",
+                                            pvalueCutoff = pval_lim,
+                                            universe = background)
+  } else if (database == "Reactome") {
+    # Perform Reactome enrichment analysis
+    enrichment <- ReactomePA::enrichPathway(gene = protein_list,
+                                            organism = "human",
+                                            pvalueCutoff = pval_lim,
+                                            universe = background)
+  }
+  
+  if (!any(enrichment@result$p.adjust < pval_lim)) {
+    message("No significant terms found.")
+    return(NULL)
+  }
+  
+  return(enrichment)
+}
 
+do_gsea <- function(de_results,
+                    database = c("KEGG", "GO", "Reactome"),
+                    pval_lim = 0.05) {
+  
+  database <- match.arg(database)
+  
+  # Prepare sorted_protein_list
+  protein_list <- stats::setNames(de_results$logFC,
+                                  de_results$Assay)
+  sorted_protein_list <- sort(protein_list, decreasing = TRUE)
+  
+  # From gene name to ENTREZID
+  protein_conversion <- clusterProfiler::bitr(names(sorted_protein_list),
+                                              fromType = "SYMBOL",
+                                              toType = "ENTREZID",
+                                              OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+  
+  protein_list <- stats::setNames(sorted_protein_list, protein_conversion$ENTREZID)
+  
+  if (database == "KEGG") {
+    # Perform GSEA for KEGG
+    enrichment <- clusterProfiler::gseKEGG(geneList = protein_list,
+                                           organism = "hsa",
+                                           keyType = "ENTREZID",
+                                           pvalueCutoff = pval_lim,
+                                           pAdjustMethod = "BH",
+                                           minGSSize = 10,
+                                           maxGSSize = 500)
+  } else if (database == "GO") {
+    # Perform GSEA for GO
+    enrichment <- clusterProfiler::gseGO(geneList = protein_list,
+                                         OrgDb = org.Hs.eg.db::org.Hs.eg.db,
+                                         ont = "BP",
+                                         pvalueCutoff = pval_lim,
+                                         pAdjustMethod = "BH",
+                                         minGSSize = 10,
+                                         maxGSSize = 500)
+  } else if (database == "Reactome") {
+    # Perform GSEA for Reactome
+    enrichment <- ReactomePA::gsePathway(protein_list,
+                                         organism = "human",
+                                         pvalueCutoff = pval_lim,
+                                         pAdjustMethod = "BH",
+                                         verbose = FALSE)
+  }
+  
+  if (!any(enrichment@result$p.adjust < pval_lim)) {
+    message("No significant terms found.")
+    return(NULL)
+  }
+  
+  return(enrichment)
+}

@@ -51,6 +51,34 @@ saveRDS(medeca_de, savepath_data("DE", "de_medeca.rds"))
 volcano_medeca <- plot_volcano(medeca_de) + ggtitle("MEDECA")
 ```
 
+## GSEA
+
+```{r}
+db <- c("GO", "Reactome") #"KEGG
+
+gsea_medeca_db <- 
+  map(db, \(current_db) {
+    
+    gsea_medeca <- 
+      do_gsea(de_results = medeca_de,
+              database = current_db,
+              pval_lim = 0.05) 
+    
+    gsea_plots <- 
+      plot_gsea(enrichment = gsea_medeca,
+                de_results = medeca_de,
+                pval_lim = 0.05,
+                ncateg = 10,
+                fontsize = 10)
+  }) |> 
+  set_names(db)
+
+gsea_medeca_db$Reactome$dotplot
+ggsave(savepath("gsea_reactome_medeca.png"), h = 4, w = 6)
+gsea_medeca_db$GO$dotplot
+ggsave(savepath("gsea_GO_medeca.png"), h = 5, w = 6)
+```
+
 # ALLVOS
 
 ```{r}
@@ -76,6 +104,33 @@ allvos_de <-
 saveRDS(allvos_de, savepath_data("DE", "de_allvos.rds"))
 
 volcano_allvos <- plot_volcano(allvos_de) + ggtitle("ALLVOS")
+```
+## GSEA
+
+```{r}
+db <- c("GO", "Reactome") #"KEGG
+
+gsea_allvos_db <- 
+  map(db, \(current_db) {
+    
+    gsea_allvos <- 
+      do_gsea(de_results = allvos_de,
+              database = current_db,
+              pval_lim = 0.05) 
+    
+    gsea_plots <- 
+      plot_gsea(enrichment = gsea_allvos,
+                de_results = allvos_de,
+                pval_lim = 0.05,
+                ncateg = 10,
+                fontsize = 10)
+  }) |> 
+  set_names(db)
+
+gsea_allvos_db$Reactome$dotplot
+ggsave(savepath("gsea_reactome_allvos.png"), h = 5, w = 6)
+gsea_allvos_db$GO$dotplot
+ggsave(savepath("gsea_GO_allvos.png"), h = 6, w = 6)
 ```
 
 
@@ -125,7 +180,7 @@ proteins <-
 
 top_proteins <- 
   proteins |> 
-  head(n_top) |> 
+  head(7) |> 
   pull(Assay)
 
 plot_raincloud_cohorts(proteins = top_proteins)
@@ -177,7 +232,6 @@ ggsave(savepath("top_proteins.pdf"), h = 12, w = 5)
 # Functional characterization
 
 ```{r}
-
 proteins_func <- 
   medeca_de |> 
   select(Assay, logFC, adj.P.Val) |> 
@@ -237,4 +291,24 @@ de_prots + characterization_prots
 ggsave(savepath("proteins_functional_characterization.pdf"), h = 12, w = 6)
 ```
 
+# Pathway analysis
+
+```{r}
+ora_res <- 
+  do_ora(protein_list = proteins_func$Assay,
+       database = "GO",
+       background = unique(data$Assay),
+       pval_lim = 0.05) 
+
+ora_res |> 
+  as_tibble() |> 
+  filter(p.adjust < 0.05)
+
+plot_ora(enrichment = ora_res,
+         #protein_list,
+         pval_lim = 0.05,
+         ncateg = 10,
+         fontsize = 10) 
+
+```
 

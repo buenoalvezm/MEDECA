@@ -84,3 +84,13 @@ plot_beeswarm(data = data |>
 ggsave(savepath("top_proteins_mortality.png"), h = 3, w = 12)
 ```
 
+# Performance
+
+```{r}
+ml_medeca_mortality$performance
+
+plot_roc_curve(roc = ml_medeca_mortality$roc_curve,
+               auc = ml_medeca_mortality$performance$.estimate)
+```
+
+

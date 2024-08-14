@@ -293,3 +293,112 @@ plot_beeswarm <- function(data,
   
   return(final_plot)
 }
+
+plot_roc_curve <- function(roc,
+                           auc) {
+  roc |> 
+    ggplot(aes(
+      x = 1 - specificity,
+      y = sensitivity
+    )) +
+    geom_path(size = 1, color = "grey30") +
+    geom_segment(aes(
+      x = 0,
+      y = 0,
+      xend = 1,
+      yend = 1
+    ),
+    colour = 'grey',
+    linetype = 'dotdash') +
+    scale_x_continuous(breaks = c(0, 1)) +
+    scale_y_continuous(breaks = c(0, 1)) +
+    theme_hpa() +
+    coord_fixed() +
+    theme(legend.position = "top") +
+    ggtitle(paste0("AUC = ", round(auc, 2)))
+}
+
+plot_ora <- function(enrichment,
+                     protein_list,
+                     pval_lim = 0.05,
+                     ncateg = 10,
+                     fontsize = 10) {
+  
+  # From gene name to ENTREZID
+  protein_conversion <- clusterProfiler::bitr(protein_list,
+                                              fromType = "SYMBOL",
+                                              toType = "ENTREZID",
+                                              OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+  
+  protein_list <- protein_conversion |> dplyr::pull(ENTREZID) |> unique()
+  
+  # Visualize results
+  dotplot <- clusterProfiler::dotplot(enrichment,
+                                      showCategory = ncateg,
+                                      font.size = fontsize)
+  
+  barplot <- barplot(enrichment,
+                     drop = TRUE,
+                     showCategory = ncateg,
+                     font.size = fontsize)
+  
+  goplot <- clusterProfiler::goplot(enrichment,
+                                    showCategory = ncateg)
+  
+  enrichment <- clusterProfiler::setReadable(enrichment, OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+  cnetplot <- clusterProfiler::cnetplot(enrichment,
+                                        showCategory = ncateg,
+                                        categorySize = "pvalue",
+                                        color.params = list(foldChange = protein_list),
+                                        cex.params = list(category_label = (fontsize + 2)/12,
+                                                          gene_label = (fontsize)/12))
+  
+  return(list("dotplot" = dotplot,
+              "barplot" = barplot,
+              "goplot" = goplot,
+              "cnetplot" = cnetplot))
+}
+
+plot_gsea <- function(enrichment,
+                      de_results,
+                      pval_lim = 0.05,
+                      ncateg = 10,
+                      fontsize = 10) {
+  
+  # Prepare sorted_protein_list
+  protein_list <- stats::setNames(de_results$logFC,
+                                  de_results$Assay)
+  sorted_protein_list <- sort(protein_list, decreasing = TRUE)
+  
+  # Visualize results
+  dotplot <- clusterProfiler::dotplot(enrichment,
+                                      showCategory = ncateg,
+                                      font.size = fontsize,
+                                      split=".sign") +
+    ggplot2::facet_grid(.~.sign)
+  
+  ridgeplot <- clusterProfiler::ridgeplot(enrichment, showCategory = ncateg) +
+    ggplot2::labs(x = "enrichment distribution") +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(size = fontsize),
+                   axis.text.y = ggplot2::element_text(size = fontsize),
+                   text = ggplot2::element_text(size = fontsize))
+  
+  gseaplot <- clusterProfiler::gseaplot(enrichment,
+                                        by = "all",
+                                        title = enrichment$Description[1],
+                                        geneSetID = 1)
+  
+  enrichment <- clusterProfiler::setReadable(enrichment, OrgDb = org.Hs.eg.db::org.Hs.eg.db)
+  cnetplot <- clusterProfiler::cnetplot(enrichment,
+                                        showCategory = ncateg,
+                                        categorySize = "pvalue",
+                                        color.params = list(foldChange = protein_list),
+                                        cex.params = list(category_label = (fontsize + 2)/12,
+                                                          gene_label = (fontsize)/12))
+  
+  return(list("enrichment" = enrichment,
+              "dotplot" = dotplot,
+              "cnetplot" = cnetplot,
+              "ridgeplot" = ridgeplot,
+              "gseaplot" = gseaplot))
+}

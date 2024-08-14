@@ -67,6 +67,28 @@ selected_samples_2 <-
 
 selected_samples |> 
   count(Cancer)
+
+
+selected_samples_allvos <- 
+  meta_allvos |> 
+  select(Sample, 
+         Myelom = Myeloma, 
+         Lymfom = Lymphoma,
+         #Colorectal, 
+         Lung,
+         `Ovarian or tubar` = Ovarian, 
+         Breast, 
+         #Prostate,
+         `Pancreas or gall bladder or bile duct` = `Pancreas,/gall bladder/bile duct`,
+         `Neuroendocrine tumors`) |> 
+  pivot_longer(cols = -Sample,
+               names_to = "Cancer",
+               values_to = "Value") |> 
+  filter(Value == 1) |> #Lymphoma + prostate cancer
+  select(-Value)
+
+selected_samples_allvos |> 
+  count(Cancer)
 ```
 
 # Plot markes
@@ -100,6 +122,51 @@ data |>
             axis_x = F)
 
 ggsave(savepath("examples_pan_cancer.pdf"), h = 3, w = 12)
+
+
+data |> 
+  filter(Sample %in% c(selected_samples$Sample, 
+                       medeca_healthy$Sample,
+                       selected_samples_allvos$Sample),
+         Assay %in% selected_assays) |> 
+  left_join(selected_samples |>
+              bind_rows(selected_samples_allvos), by = "Sample") |>
+  mutate(Cancer = ifelse(is.na(Cancer), "No diagnosis", Cancer),
+         Cancer = factor(Cancer, levels = cancer_groups)) |> 
+  ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
+  geom_quasirandom(alpha = 0.8, size = 1) +
+  geom_boxplot(alpha = 0.5, outlier.color = NA) +
+  facet_wrap(~Assay, scales = "free_y", nrow = 1) +
+  scale_color_manual(values = pal_cancers) +
+  scale_fill_manual(values = pal_cancers) +
+  theme_hpa(angled = T,
+            axis_x = F) 
+
+
+ggsave(savepath("examples_pan_cancer_medeca_allvos_together.pdf"), h = 3, w = 12)
+
+data |> 
+  filter(Sample %in% c(selected_samples$Sample, 
+                       medeca_healthy$Sample,
+                       selected_samples_allvos$Sample),
+         Assay %in% selected_assays) |> 
+  left_join(selected_samples |>
+              bind_rows(selected_samples_allvos), by = "Sample") |>
+  mutate(Cancer = ifelse(is.na(Cancer), "No diagnosis", Cancer),
+         Cancer = factor(Cancer, levels = cancer_groups)) |> 
+  left_join(metadata |> 
+              select(Sample, Cohort), by = "Sample") |> 
+  ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
+  geom_quasirandom(alpha = 0.8, size = 1) +
+  geom_boxplot(alpha = 0.5, outlier.color = NA) +
+  facet_wrap(Cohort~Assay, scales = "free_y", nrow = 2) +
+  scale_color_manual(values = pal_cancers) +
+  scale_fill_manual(values = pal_cancers) +
+  theme_hpa(angled = T,
+            axis_x = F) 
+
+
+ggsave(savepath("examples_pan_cancer_medeca_allvos.pdf"), h = 6, w = 12)
 ```
 
 ## All pan-cancer markers 
@@ -119,6 +186,20 @@ data_selected <-
          Assay %in% selected_pancancer_markers$Protein) 
 ```
 
+### Boxplots
+
+```{r}
+plots <- map(selected_pancancer_markers$Protein, 
+             \(protein) {
+                 plot_beeswarm_pancancer(protein)
+             })
+
+pdf(savepath("pan_cancer_markers.pdf"), height = 5, width = 5)
+plots
+dev.off()
+
+```
+
 ### Heatmap
 
 ```{r}
@@ -133,10 +214,10 @@ data_selected |>
            color = heatmap_pal(100),
            #clustering_method = "ward.D2",
            annotation_row = selected_samples |> column_to_rownames("Sample"),
-           annotation_colors = list(Cancer = pal_groups))
+           annotation_colors = list(Cancer = pal_cancers))
 ```
 
-### UMAP
+### UMAP & PCA
 
 ```{r}
 selected_umap <- 
@@ -147,7 +228,19 @@ selected_umap <-
         impute = T,
         plots = T)
 
-selected_umap$pca_plot
+selected_umap$umap_plot +
+  scale_color_manual(values = pal_cancers)
+
+selected_pca <- 
+  do_pca(data = data_selected,
+        meta = selected_samples_2,
+        variable = "Cancer",
+        wide = F,
+        impute = T,
+        plots = T)
+
+selected_pca$pca_plot +
+  scale_color_manual(values = pal_cancers)
 ```
 
 

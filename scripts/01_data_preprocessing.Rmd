@@ -172,17 +172,14 @@ pca_data_panels <-
     pca_dat <- 
       data_qc |> 
       filter(Panel == panel) |> 
-      select(SampleID, Assay, NPX) |>
-      distinct() |> 
-      pivot_wider(names_from = "Assay", values_from = "NPX") |> 
-      impute_values(wide_data = T, ID = "SampleID") |> 
-      column_to_rownames("SampleID") |> 
-      t() |> 
-      do_pca()
+      select(Sample = SampleID, Assay, NPX) 
     
-    pca_dat@scores |>
-      as.data.frame() |> 
-      rownames_to_column("SampleID") |> 
+    pca_data <- 
+      do_pca(data = pca_dat,
+             wide = F,
+             impute = T) 
+    
+    pca_data$pca_res |> 
       mutate(Panel = panel)
     
   })
@@ -190,8 +187,7 @@ pca_data_panels <-
 pca_data_panels |> 
   ggplot(aes(PC1, PC2)) +
   geom_point() +
-  geom_text_repel(aes(label = SampleID), show.legend = F) +
-  scale_color_manual(values = pal_batch) +
+  geom_text_repel(aes(label = Sample), show.legend = F) +
   facet_wrap(~Panel) +
   theme_hpa()
 
@@ -222,44 +218,36 @@ ggsave(savepath("pca_panels.png"), h = 8, w = 8)
 ```{r, warning=FALSE, message=FALSE}
 pca_dat <- 
   data_qc |> 
-  select(SampleID, Assay, NPX) |> 
-  distinct() |> 
-  pivot_wider(names_from = "Assay", values_from = "NPX") |> 
-  impute_values(wide_data = T, ID = "SampleID") |> 
-  column_to_rownames("SampleID") |> 
-  t() |> 
-  do_pca()
+  select(Sample = SampleID, Assay, NPX) 
 
 pca_data <- 
-  pca_dat@scores |>
-  as.data.frame() |> 
-  rownames_to_column("SampleID")
+  do_pca(data = pca_dat,
+         wide = F,
+         impute = T) 
 
 labels <- 
-  pca_data |> 
+  pca_data$pca_res |> 
   mutate(sum_PC1_PC2 = abs(PC1) + abs(PC2)) |> 
   top_n(3, sum_PC1_PC2)
 
 pca_scores_panel <-
-  pca_data |> 
+  pca_data$pca_res |> 
   ggplot(aes(PC1, PC2)) +
   geom_point() +
-  geom_text_repel(data = labels, aes(label = SampleID), show.legend = F) +
+  geom_text_repel(data = labels, aes(label = Sample), show.legend = F) +
   theme_hpa()
 
 # Loadings
-pca_data_loadings <- 
-  pca_dat@loadings |>
-  as.data.frame() |> 
-  rownames_to_column("Protein") 
-
 pca_loadings <- 
-  pca_data_loadings |> 
+  pca_data$loadings |> 
+  select(Assay, Value, PC) |> 
+  pivot_wider(names_from = PC,
+              values_from = Value) |>
   left_join(raw_data |> 
-              distinct(Assay, Panel), by = c("Protein" = "Assay")) |> 
+              distinct(Assay, Panel), by = "Assay") |> 
   ggplot(aes(PC1, PC2, color = Panel)) +
   geom_point() +
-  geom_text_repel(aes(label = Protein), show.legend = F) +
+  geom_text_repel(aes(label = Assay), show.legend = F) +
   scale_color_manual(values = pal_panel) +
   theme_hpa()
 
@@ -279,18 +267,14 @@ umap_data_panels <-
     umap_dat <- 
       data_qc |> 
       filter(Panel == panel) |> 
-      select(SampleID, Assay, NPX) |> 
-      distinct() |> 
-      pivot_wider(names_from = "Assay", values_from = "NPX") |> 
-      impute_values(wide_data = T, ID = "SampleID") |> 
-      column_to_rownames("SampleID") |> 
-      do_umap()
-    
-    umap_data <- 
-      umap_dat |> 
-      rownames_to_column("SampleID") |> 
+      select(Sample = SampleID, Assay, NPX) 
+
+    umap_data <-  
+      do_umap(data = umap_dat,
+              wide = F,
+              impute = T) |> 
       mutate(Panel = panel)
-  
+    
   })
 
 umap_data_panels |> 
@@ -305,36 +289,17 @@ umap_data_panels |>
 ```{r, warning=FALSE, message=FALSE}
 umap_dat <- 
   data_qc |> 
-  select(SampleID, Assay, NPX) |> 
-  distinct() |> 
-  pivot_wider(names_from = "Assay", values_from = "NPX") |> 
-  impute_values(wide_data = T, ID = "SampleID") |> 
-  column_to_rownames("SampleID") |> 
-  do_umap()
+  select(Sample = SampleID, Assay, NPX) 
+  
+umap_data <-  
+  do_umap(data = umap_dat,
+          wide = F,
+          impute = T)
 
-umap_dat |> 
-  rownames_to_column("SampleID") |> 
+umap_data |> 
   ggplot(aes(UMAP1, UMAP2)) +
-  geom_point() +
-  scale_color_manual(values = pal_batch) +
+  geom_point(alpha = 0.7, size = 2) +
   theme_hpa()
-```
-
-
-## Median-IQR
-
-```{r, warning=FALSE, message=FALSE}
-data_qc |> 
-  group_by(Panel,Assay) |> 
-  summarise(Median = median(NPX),
-            IQR = IQR(NPX)) |> 
-  ggplot(aes(Median, IQR)) +
-  geom_point() +
-  geom_text_repel(aes(label = Assay), size = 3) +
-  facet_wrap(~Panel, scales = "free") +
-  theme_hpa()
-
-ggsave(savepath("median_iqr.png"), h = 8, w = 8)
 ```
 
 

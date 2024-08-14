@@ -53,35 +53,3 @@ savepath_data <-
     return(savename)
     
   }
-
-
-# Function to impute values
-impute_values <- 
-  function(data, ID, wide_data = F) {
-    
-    if(wide_data == F) {
-      data_wide <- 
-        data %>% 
-        select(ID, Assay, NPX) %>% 
-        spread(Assay,NPX) 
-      
-    } else {
-      data_wide <- 
-        data
-    }
-    
-    data_imputed <- 
-      data_wide %>% 
-      column_to_rownames(ID) %>% 
-      as.matrix() %>% 
-      t() %>% 
-      impute.knn() 
-    
-    final_data <- 
-      data_imputed$data %>% 
-      t() %>% 
-      as_tibble(rownames = ID)
-    
-    return(final_data)
-    
-  }

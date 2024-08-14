@@ -52,8 +52,35 @@ ml_medeca_mortality <-
            split_test = medeca_mortality_test) 
 
 saveRDS(ml_medeca_mortality, savepath_data("ML", "ml_medeca_mortality.rds"))
+```
 
-ml_medeca_mortality$important_proteins |> View()
+# Check markers
 
+```{r}
+ml_medeca_mortality$important_proteins
+
+plot_beeswarm(data = data |> 
+                filter(Sample %in% meta_medeca$Sample),
+              metadata = meta_medeca |> 
+                mutate(Mortality = ifelse(Mortality == 1, "Yes", "No")),
+              proteins = "ULBP2",
+              variable = "Mortality",
+              palette = pal_binary)
+
+
+top_10 <- 
+  ml_medeca_mortality$important_proteins |> 
+  head(10) |> 
+  pull(term)
+
+plot_beeswarm(data = data |> 
+                filter(Sample %in% meta_medeca$Sample),
+              metadata = meta_medeca |> 
+                mutate(Mortality = ifelse(Mortality == 1, "Yes", "No")),
+              proteins = top_10,
+              variable = "Mortality",
+              palette = pal_binary)
+
+ggsave(savepath("top_proteins_mortality.png"), h = 3, w = 12)
 ```
 

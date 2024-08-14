@@ -72,7 +72,8 @@ do_lasso <-
   function(variable,
            case, 
            split_train, 
-           split_test) {
+           split_test,
+           auc_filter = F) {
     
     # Prepare data - make custom split for current variable
     training_dat <- 
@@ -80,25 +81,45 @@ do_lasso <-
       mutate(Class = case_when(!!sym(variable) == case ~ "Case",
                                !!sym(variable) != case ~ "Control")) |> 
       mutate(Class = factor(Class)) |> 
-      select(-!!sym(variable))
+      select(-!!sym(variable)) |> 
+      mutate(Sample = as.character(Sample))
     
     testing_dat <- 
       split_test  |> 
       mutate(Class = case_when(!!sym(variable) == case ~ "Case",
                                !!sym(variable) != case ~ "Control")) |> 
       mutate(Class = factor(Class)) |> 
-      select(-!!sym(variable))
+      select(-!!sym(variable))|> 
+      mutate(Sample = as.character(Sample))
+    
     
     ml_split_custom <- make_splits(training_dat, testing_dat)
     
     # Recipe with ML steps
-    ml_recipe <- 
-      recipe(Class ~ ., data = training_dat) |> 
-      update_role(Sample, new_role = "id") |> 
-      step_normalize(all_numeric()) |> 
-      step_nzv(all_numeric()) |> 
-      step_corr(all_numeric()) |> 
-      step_impute_knn(all_numeric()) 
+    if(auc_filter == T) {
+      ml_recipe <- 
+        recipe(Class ~ ., data = training_dat) |> 
+        step_relevel(ref_level = "Control") |> 
+        update_role(Sample, new_role = "id") |> 
+        step_normalize(all_numeric_predictors()) |> 
+        step_nzv(all_numeric_predictors()) |> 
+        step_corr(all_numeric_predictors()) |> 
+        step_impute_knn(all_numeric_predictors()) 
+      
+    } else {
+      ml_recipe <- 
+        recipe(Class ~ ., data = training_dat) |> 
+        step_relevel(ref_level = "Control") |> 
+        update_role(Sample, new_role = "id") |> 
+        step_normalize(all_numeric_predictors()) |> 
+        step_nzv(all_numeric_predictors()) |> 
+        step_corr(all_numeric_predictors()) |> 
+        step_impute_knn(all_numeric_predictors()) |> 
+        step_select_roc(all_numeric_predictors(), outcome = "Class", threshold = 0.75) 
+      
+    }
+    
+    #a <- prep(ml_recipe, data = training_dat)
     
     # LASSO model specifications
     glmnet_specs <- 
@@ -180,13 +201,13 @@ do_lasso <-
     
     # Extract protein importance
     important_proteins <- 
-      final_glmnet_fit  |> 
+      final_glmnet_fit %>%
       extract_fit_parsnip() %>%
-      tidy() |> 
-      filter(term != "(Intercept)") |> 
-      arrange(-abs(estimate)) |> 
-      filter(abs(estimate) > 0) |> 
-      select(-penalty)
+      vi(lambda = best_glmnet$penalty) %>%
+      mutate(
+        Importance = abs(Importance),
+        Variable = fct_reorder(Variable, Importance)
+      )
     
     # Extract model predictions
     predictions <- 

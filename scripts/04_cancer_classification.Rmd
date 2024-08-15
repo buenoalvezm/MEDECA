@@ -204,6 +204,14 @@ data |>
 ggsave(savepath("top_proteins_ml.pdf"), h = 10, w = 3.5)
 
 
+plot_beeswarm_cohorts(proteins = c("RRM2", "AGR2", "ADAM23",
+                                   "FCRL2", "CNTN5"),
+                      data = data |> filter(Sample %in% meta_medeca$Sample),
+                      metadata = metadata,
+                      variable = "Cancer",
+                      palette = pal_cancer)
+ggsave(savepath("top_proteins_ml.pdf"), h = 10, w = 4)
+
 medeca_de |> 
   left_join(important_proteins, by = c("Assay" = "term")) |> 
   mutate(estimate = ifelse(is.na(estimate), 0, estimate)) |> 
@@ -277,11 +285,6 @@ allvos_dat <-
   allvos_fit  |> 
   mutate(Pred = ifelse(.pred_Case > 0.5, "Case", "Control"),
          Cancer = ml_data_allvos$Class) 
-
-
-
-
-
 
 # This will automatically `bake()` the recipe on `testing`,
 allvos_fit <- fit(ml_medeca$final_workflow, ml_data_allvos)
@@ -550,14 +553,25 @@ proteins_cancer <-
   filter(class == "Cancer") |> 
   top_n(7, abs(estimate))
 
-plot_beeswarm_cohorts(proteins = proteins_cancer$term,
+proteins_cancer_de <- 
+  important_proteins |> 
+  filter(class == "Cancer") |> 
+  left_join(medeca_de, by = c("term" = "Assay")) |> 
+  filter(sig != "not significant")
+
+plot_beeswarm_cohorts(proteins = proteins_cancer_de$term,
                       data = data,
                       metadata = meta_medeca |> 
-                        mutate(Cohort = "MEDECA"),
+                        mutate(Cohort = "MEDECA",
+                               Disease_type = factor(Disease_type, levels = names(pal_disease_type))),
                       variable = "Disease_type",
-                      palette = pal_disease_type)
+                      palette = pal_disease_type,
+                      angled = T)
 
-ggsave(savepath("a.png"))
+ggsave(savepath("proteins_cancer_multiclass.pdf"), h = 9, w = 4)
+
+
+####
 data |> 
   filter(Sample %in% meta_medeca$Sample,
          Assay %in% proteins$term) |> 
@@ -627,6 +641,41 @@ ggsave(savepath("confusion_matrix.pdf"), h = 5, w = 5)
 ## Apply to ALLVOS
 
 ```{r}
+
+# Prepare ALLVOS data
+ml_data_allvos <- 
+  data |> 
+  filter(Sample %in% meta_allvos$Sample) |> 
+  select(Sample, Assay, NPX) |> 
+  pivot_wider(names_from = Assay,
+              values_from = NPX) |> 
+  left_join(meta_allvos |> 
+              select(Sample, Category), by = "Sample") |> 
+  mutate(Category = factor(Category)) |> 
+  filter(!is.na(Category))
+
+allvos_multiclass_fit <- predict(medeca_multiclass$final_fit|> extract_workflow(), 
+                      ml_data_allvos, 
+                      type = "prob")
+
+allvos_multiclass_fit |>
+  mutate(Class = ml_data_allvos$Category,
+         Sample = ml_data_allvos$Sample) |> 
+  pivot_longer(names_to = ".pred_class",
+               values_to = "probability",
+               cols = c(1:3)) |> 
+  mutate(.pred_class = gsub(".pred_", "", .pred_class)) |> 
+  group_by(Sample) |> 
+  top_n(1, probability) |> 
+  select(-Sample, -probability) |> 
+  conf_mat(Class, .pred_class)|> 
+  autoplot(type = "heatmap") +
+  theme_hpa() +
+  theme(axis.ticks = element_blank()) +
+  coord_fixed()
+
+ggsave(savepath("confusion_matrix.pdf"), h = 5, w = 5)
+```
 
 ```
 

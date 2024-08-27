@@ -95,23 +95,26 @@ do_lasso <-
     
     ml_split_custom <- make_splits(training_dat, testing_dat)
     
+    #library(recipeselectors)
+    
     # Recipe with ML steps
     if(auc_filter == T) {
       ml_recipe <- 
         recipe(Class ~ ., data = training_dat) |> 
-        step_relevel(ref_level = "Control") |> 
+        step_relevel(Class, ref_level = "Control") |> 
         update_role(Sample, new_role = "id") |> 
         step_normalize(all_numeric_predictors()) |> 
         step_nzv(all_numeric_predictors()) |> 
         step_corr(all_numeric_predictors()) |> 
         step_impute_knn(all_numeric_predictors()) |> 
-        step_select_roc(all_numeric_predictors(), outcome = "Class", threshold = 0.75) 
-      
+        step_select_roc(all_numeric_predictors(), 
+                        outcome = "Class", 
+                        threshold = 0.75) 
       
     } else {
       ml_recipe <- 
         recipe(Class ~ ., data = training_dat) |> 
-        step_relevel(ref_level = "Control") |> 
+        step_relevel(Class, ref_level = "Control") |> 
         update_role(Sample, new_role = "id") |> 
         step_normalize(all_numeric_predictors()) |> 
         step_nzv(all_numeric_predictors()) |> 
@@ -119,8 +122,8 @@ do_lasso <-
         step_impute_knn(all_numeric_predictors()) 
     }
     
-    a <- prep(ml_recipe, data = training_dat)
-    a$template
+    # a <- prep(ml_recipe, data = training_dat)
+    # a$template
     
     # LASSO model specifications
     glmnet_specs <- 
@@ -148,11 +151,13 @@ do_lasso <-
     ml_rs <- vfold_cv(training_dat, v = 10, strata = Class)
     
     # Define the evaluation metrics (add brier)
-    eval_metrics <- metric_set(roc_auc)
+    eval_metrics <- metric_set(roc_auc, event_level = "second")
     
     # Define control_grid
     set.seed(213)
-    ctrl <- control_grid(save_pred = TRUE, parallel_over = "everything") # look at extract = identity
+    ctrl <- control_grid(save_pred = TRUE, 
+                         event_level = "second",
+                         parallel_over = "everything") # look at extract = identity
     
     # Glmnet grid search
     set.seed(213)
@@ -177,7 +182,7 @@ do_lasso <-
     
     # Select best hyperparameter
     best_glmnet <- 
-      select_best(glmnet_res, metric = "roc_auc") |> 
+      select_best(glmnet_res, metric = "roc_auc", event_level = "second") |> 
       select(-.config)
     
     #Finalize the workflow and fit the final model
@@ -185,12 +190,15 @@ do_lasso <-
       glmnet_wflow |>  
       finalize_workflow(best_glmnet)
     
-    final_glmnet_fit <- last_fit(glmnet_wflow, ml_split_custom, metrics = eval_metrics) 
+    final_glmnet_fit <- last_fit(glmnet_wflow,
+                                 ml_split_custom, 
+                                 #event_level = "second",
+                                 metrics = eval_metrics) 
     
     # Extract model performance
     performance <- 
       final_glmnet_fit |> 
-      collect_metrics() |> 
+      collect_metrics(event_level = "second") |> 
       select(-.config, -.estimator)
     
     glmnet_auc <- 
@@ -202,9 +210,9 @@ do_lasso <-
     
     # Extract protein importance
     important_proteins <- 
-      final_glmnet_fit %>%
-      extract_fit_parsnip() %>%
-      vi(lambda = best_glmnet$penalty) %>%
+      final_glmnet_fit |> 
+      extract_fit_parsnip()  |> 
+      vip::vi(lambda = best_glmnet$penalty, event_level = "second")  |> 
       mutate(
         Importance = abs(Importance),
         Variable = fct_reorder(Variable, Importance)
@@ -227,7 +235,7 @@ do_lasso <-
     # ROC curve
     roc <- 
       predictions |>
-      roc_curve(truth = Class, .pred_Case) 
+      roc_curve(truth = Class, .pred_Case, event_level = "second") 
     
     
     return(list("penalty" = best_glmnet,

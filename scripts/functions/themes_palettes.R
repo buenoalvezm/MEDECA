@@ -69,7 +69,7 @@ pal_binary <- c("Yes" = "red",
 
 pal_heatmap <-
   brewer.pal(9, name = "YlOrRd") |>  
-  #colorRampPalette()
+  colorRampPalette()
 
 # HPA theme
 theme_hpa <- 

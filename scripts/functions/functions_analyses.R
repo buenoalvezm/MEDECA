@@ -67,13 +67,57 @@ do_limma <-
     return(DE_res)
   }
 
+
+# Function to select proteins based on AUC
+step_filter_auc <-  function(data, 
+                             cutoff = 0.8) {
+  proteins <- 
+    data |> 
+    select(-Sample, -Cancer) |> 
+    colnames()
+  
+  auc_res <- 
+    map_df(proteins, function(protein) {
+    protein_exp <- 
+      data |> 
+      pull(sym(protein))
+    
+    cancer_class <- 
+      data |> 
+      pull(Cancer)
+    
+    res <- pROC::roc(cancer_class, protein_exp)
+    
+    tibble(Protein = protein,
+           AUC = round(as.numeric(res$auc), 2))
+    
+  })
+  
+  plot_auc <- 
+    auc_res |> 
+    ggplot(aes(AUC)) +
+    geom_histogram() +
+    theme_hpa()
+  
+  auc_res_cutoff <- 
+    auc_res |> 
+    filter(AUC > cutoff)
+  
+  return(list(full_list = auc_res,
+              auc_distribution = plot_auc,
+              final_list = auc_res_cutoff))
+  
+  }
+
+
 # Function to perform lasso analyses
 do_lasso <-  
   function(variable,
            case, 
            split_train, 
-           split_test,
-           auc_filter = F) {
+           split_test#,
+           #auc_filter = F
+           ) {
     
     # Prepare data - make custom split for current variable
     training_dat <- 
@@ -95,35 +139,39 @@ do_lasso <-
     
     ml_split_custom <- make_splits(training_dat, testing_dat)
     
-    #library(recipeselectors)
     
-    # Recipe with ML steps
-    if(auc_filter == T) {
-      ml_recipe <- 
-        recipe(Class ~ ., data = training_dat) |> 
-        step_relevel(Class, ref_level = "Control") |> 
-        update_role(Sample, new_role = "id") |> 
-        step_normalize(all_numeric_predictors()) |> 
-        step_nzv(all_numeric_predictors()) |> 
-        step_corr(all_numeric_predictors()) |> 
-        step_impute_knn(all_numeric_predictors()) |> 
-        step_select_roc(all_numeric_predictors(), 
-                        outcome = "Class", 
-                        threshold = 0.75) 
-      
-    } else {
-      ml_recipe <- 
-        recipe(Class ~ ., data = training_dat) |> 
-        step_relevel(Class, ref_level = "Control") |> 
-        update_role(Sample, new_role = "id") |> 
-        step_normalize(all_numeric_predictors()) |> 
-        step_nzv(all_numeric_predictors()) |> 
-        step_corr(all_numeric_predictors()) |> 
-        step_impute_knn(all_numeric_predictors()) 
-    }
+    # # Recipe with ML steps
+    # if(auc_filter == T) {
+    #   
+    #   # Find proteins to retain
+    #   proteins <- 
+    #     step_filter_auc(data = training_dat, 
+    #                     cutoff = 0.75)
+    #   
+    #   # Keep proteins in training and testing data
+    #   training_dat <- 
+    #     training_dat |> 
+    #     select(Sample, Class, proteins)
+    #   
+    #   testing_dat <- 
+    #     testing_dat |> 
+    #     select(Sample, Class, proteins)
+    #   
+    #   
+    # } else {
+    #   next
+    # }
+    # 
     
-    # a <- prep(ml_recipe, data = training_dat)
-    # a$template
+    # Define recipe
+    ml_recipe <- 
+      recipe(Class ~ ., data = training_dat) |> 
+      step_relevel(Class, ref_level = "Control") |> 
+      update_role(Sample, new_role = "id") |> 
+      step_normalize(all_numeric_predictors()) |> 
+      step_nzv(all_numeric_predictors()) |> 
+      #step_corr(all_numeric_predictors()) |> 
+      step_impute_knn(all_numeric_predictors()) 
     
     # LASSO model specifications
     glmnet_specs <- 
@@ -131,7 +179,7 @@ do_lasso <-
       set_mode("classification") |> 
       set_engine("glmnet") |> 
       set_args(penalty = tune(), 
-               mixture = 1) 
+               mixture = tune()) #1 
     
     # ML workflow
     glmnet_wflow <-
@@ -144,14 +192,14 @@ do_lasso <-
     glmnet_grid <-
       glmnet_wflow |>
       extract_parameter_set_dials() |>
-      grid_latin_hypercube(size = 10)
+      grid_latin_hypercube(size = 30)
     
     # Define the resamples (CV)
     set.seed(213)
     ml_rs <- vfold_cv(training_dat, v = 10, strata = Class)
     
     # Define the evaluation metrics (add brier)
-    eval_metrics <- metric_set(roc_auc, event_level = "second")
+    eval_metrics <- metric_set(roc_auc)
     
     # Define control_grid
     set.seed(213)

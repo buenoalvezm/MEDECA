@@ -53,15 +53,54 @@ medeca_test <- testing(medeca_split)
 ## AUC filter
 
 ```{r}
+
+selected_proteins <- 
+  step_filter_auc(data = medeca_train,
+                  cutoff = 0.65)
+# Select proteins
+medeca_train_filtered <- 
+  medeca_train |> 
+  select(Sample, Cancer, selected_proteins$final_list$Protein)
+
+# Explore correlation filter
+MAD1L1, DPY30 
+
+cor_selected_proteins <- 
+  medeca_train_filtered |> 
+  select(-Cancer) |> 
+  column_to_rownames("Sample") |> 
+  cor(method = "spearman", use = "complete.obs")
+
+cor_selected_proteins |> 
+  as.data.frame() |> 
+  rownames_to_column("Protein_1") |> 
+  as_tibble() |> 
+  pivot_longer(names_to = "Protein_2",
+               values_to = "cor",
+               cols = c(2:18)) |> 
+  filter(Protein_1 != Protein_2) |> 
+  arrange(-cor)
+
+cor_selected_proteins |> 
+  pheatmap()
+
+medeca_test_filtered <- 
+  medeca_test |> 
+  select(Sample, Cancer, selected_proteins$final_list$Protein)
+
 # Run lasso pipeline
 ml_medeca_filter<- 
   do_lasso(variable = "Cancer",
            case = "Yes", 
-           split_train = medeca_train, 
-           split_test = medeca_test,
-           auc_filter = T) 
+           split_train = medeca_train_filtered, 
+           split_test = medeca_test_filtered) 
 
-saveRDS(ml_medeca_filter, savepath_data("ML", "ml_medeca_filter.rds"))
+#saveRDS(ml_medeca_filter, savepath_data("ML", "ml_medeca_filter.rds"))
+
+ml_medeca_filter$important_proteins |> 
+  filter(Importance > 0)
+
+ml_medeca_filter$performance
 ```
 
 ## All proteins
@@ -74,9 +113,11 @@ ml_medeca <-
            split_train = medeca_train, 
            split_test = medeca_test) 
 
-saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
+#saveRDS(ml_medeca, savepath_data("ML", "ml_medeca.rds"))
 
-ml_medeca$important_proteins 
+ml_medeca$important_proteins |> 
+  filter(Importance > 0)
+
 ml_medeca$performance
 ```
 

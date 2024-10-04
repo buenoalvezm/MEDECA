@@ -48,6 +48,22 @@ selected_samples <-
          Sample != "110") |> #Lymphoma + prostate cancer
   select(-Value)
 
+
+selected_samples_de <- 
+  meta_medeca |> 
+  select(Sample, 
+         Myelom, 
+         Lymfom,
+         Lung,
+         `Pancreas or gall bladder or bile duct`,
+         `Neuroendocrine tumors`) |> 
+  pivot_longer(cols = -Sample,
+               names_to = "Cancer",
+               values_to = "Value") |> 
+  filter(Value == 1,
+         Sample != "110") |> #Lymphoma + prostate cancer
+  select(-Value)
+
 selected_samples_2 <- 
   meta_medeca |> 
   select(Sample, 
@@ -90,6 +106,234 @@ selected_samples_allvos <-
 selected_samples_allvos |> 
   count(Cancer)
 ```
+
+# Differential expression
+
+```{r}
+
+cancers <- 
+  selected_samples_de |> 
+  pull(Cancer) |> 
+  unique()
+
+cancers_order <- 
+  c("Lung", 
+    "Lymfom", 
+    "Myelom", 
+    
+     "Neuroendocrine tumors",
+    "Pancreas or gall bladder or bile duct")
+
+de_cancers <- 
+  map_df(cancers, function(cancer) {
+    
+    limma_meta_medeca <- 
+      meta_medeca |> 
+      filter(Sample %in% selected_samples$Sample) |>
+      select(-Cancer) |> 
+      left_join(selected_samples, by = "Sample") |>
+      mutate(Cancer = ifelse(Cancer == cancer, cancer, "Control")) |> 
+      select(Sample, Cancer, Age, Sex) 
+    
+    limma_data_medeca <- 
+      data |> 
+      filter(Sample %in% limma_meta_medeca$Sample) |> 
+      pivot_wider(names_from = Assay, 
+                  values_from = NPX) 
+    
+    # Run differential expression analyses
+    medeca_de <-
+      do_limma(data_wide = limma_data_medeca, 
+               metadata = limma_meta_medeca,
+               variable = "Cancer", 
+               case = cancer,
+               correct = T) |> 
+      mutate(Cancer = cancer)
+    
+    
+  })
+
+
+labels <- 
+  de_cancers |>
+  group_by(Cancer) |> 
+  top_n(n = 10, wt = -log10(adj.P.Val)) 
+
+de_cancers |> 
+  mutate(Cancer = factor(Cancer, levels = cancers_order)) |> 
+  ggplot(aes(x = logFC, y = -log10(adj.P.Val), color = sig, label = Assay)) +
+  geom_point(size = 1, alpha = 0.4) + #, show.legend = F 
+  geom_text_repel(data = labels, size = 2, show.legend = F) +
+  geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "darkgrey") +
+  geom_vline(xintercept = -0.5, linetype = 'dashed', color = "darkgrey") +
+  geom_vline(xintercept = 0.5, linetype = 'dashed', color = "darkgrey") +
+  scale_color_manual(values = pal_de) +
+  facet_wrap(~Cancer, scales = "free", nrow = 1) +
+  theme_hpa() +
+  theme(axis.text = element_text(size = 8),
+        legend.position = "right")   
+
+ggsave(savepath("cancer_de_legend.pdf"), h = 3, w = 12)
+
+```
+
+## Top markers
+
+
+```{r}
+top_marker_cancer <- 
+  de_cancers |> 
+  mutate(Cancer = factor(Cancer, levels = cancers_order)) |> 
+  group_by(Cancer) |> 
+  top_n(2, -adj.P.Val) |> 
+  arrange(Cancer)
+
+data |> 
+  filter(Sample %in% selected_samples_de$Sample,
+         Assay %in% top_marker_cancer$Assay) |> 
+  left_join(selected_samples_de, by = "Sample") |> 
+  mutate(Cancer = factor(Cancer, levels = cancers_order),
+         Assay = factor(Assay, levels = top_marker_cancer$Assay)) |> 
+  ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
+  geom_quasirandom(alpha = 0.8, size = 1, show.legend = F) +
+  geom_boxplot(alpha = 0.5, outlier.color = NA, show.legend = F) +
+  facet_wrap(~Assay, scales = "free_y", nrow = 1) +
+  scale_color_manual(values = pal_cancers) +
+  scale_fill_manual(values = pal_cancers) +
+  theme_hpa(angled = T,
+            axis_x = F)
+
+ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
+
+```
+
+
+
+## Direct comparison pan-cancer
+
+```{r}
+
+de_pancancer <- read_tsv("data/Phase1 2023 differential expression data.tsv")
+
+de_pancancer_selected <- 
+  de_pancancer |>
+  filter(Cancer %in% c("LYMPH",
+                       "MYEL",
+                       "LUNGC")) 
+
+combined_dataset <- 
+  combine_data(name_alvez = "LUNGC", name = "Lung") |> 
+  bind_rows(combine_data(name_alvez = "LYMPH", name = "Lymfom")) |> 
+  bind_rows(combine_data(name_alvez = "MYEL", name = "Myelom"))
+
+labels <-
+  combined_dataset |> 
+  filter(p_value == "Both studies") |> 
+  group_by(Cancer) |>
+  mutate(rank_alvez = rank(-adj_pval_Alvez),
+         rank_medeca = rank(-adj_pval),
+         sum_rank = rank_alvez + rank_medeca) |> 
+  top_n(n = 5, wt = sum_rank)
+
+  #  p1 <- 
+      combined_dataset |> 
+      #mutate(Cancer = factor(Cancer, levels = "Lung", "Lymfom", "Myelom")) |>
+      ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval), color = p_value)) +
+     # geom_text_repel(aes(label = Assay), show.legend = F) +
+      geom_text(data = labels, aes(label = Assay), show.legend = F) +
+      geom_point( show.legend = F) +
+      geom_hline(yintercept = -log10(0.05), slope = 1, linetype = 'dashed', color = "darkgrey") +
+      geom_vline(xintercept = -log10(0.05), slope = 1, linetype = 'dashed', color = "darkgrey") +
+      scale_color_manual(values = pal_pvalue) +
+      facet_wrap(~Cancer, scales = "free") +
+      theme_hpa()
+      
+      ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
+
+# Lymphoma
+pal_pvalue <- c("Both studies" = "#945785", 
+                "One study" = "#DAA4AB", 
+                "None" = "grey")
+
+combine_data <- 
+  function(name_alvez, name) {
+    
+    data <- 
+      de_pancancer |> 
+      filter(Cancer == name_alvez) |> 
+      select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+      left_join(de_cancers |> 
+                  filter(Cancer == name) |> 
+                  select(Assay, logFC, adj_pval = adj.P.Val), 
+                by = "Assay") |> 
+      mutate(p_value = case_when(
+        adj_pval < 0.05 & adj_pval_Alvez < 0.05 ~ "Both studies",
+        adj_pval < 0.05 ~ "One study",
+        adj_pval_Alvez < 0.05 ~ "One study",
+        TRUE ~ "None")) |> 
+      mutate(Cancer = name)
+        
+        return(data)
+  
+  }
+
+
+de_pancancer |> 
+  filter(Cancer == "MYEL") |> 
+  select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+  left_join(de_cancers |> 
+              filter(Cancer == "Myelom") |> 
+              select(Assay, logFC, adj_pval = adj.P.Val), 
+            by = "Assay") |> 
+#  ggplot(aes(logFC_Alvez, logFC)) +
+  ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval))) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa()
+
+
+de_pancancer |> 
+  filter(Cancer == "BRC") |> 
+  select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+  left_join(de_cancers |> 
+              filter(Cancer == "Breast") |> 
+              select(Assay, logFC, adj_pval = adj.P.Val), 
+            by = "Assay") |> 
+#  ggplot(aes(logFC_Alvez, logFC)) +
+  ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval))) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa()
+
+
+de_pancancer |> 
+  filter(Cancer == "OVC") |> 
+  select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+  left_join(de_cancers |> 
+              filter(Cancer == "Ovarian or tubar") |> 
+              select(Assay, logFC, adj_pval = adj.P.Val), 
+            by = "Assay") |> 
+#  ggplot(aes(logFC_Alvez, logFC)) +
+  ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval))) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa()
+
+de_pancancer |> 
+  filter(Cancer == "LUNGC") |> 
+  select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+  left_join(de_cancers |> 
+              filter(Cancer == "Lung") |> 
+              select(Assay, logFC, adj_pval = adj.P.Val), 
+            by = "Assay") |> 
+  ggplot(aes(logFC_Alvez, logFC)) +
+  #ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval))) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa()
+
+```
+
 
 # Plot markes
 
@@ -168,6 +412,7 @@ data |>
 
 ggsave(savepath("examples_pan_cancer_medeca_allvos.pdf"), h = 6, w = 12)
 ```
+
 
 ## All pan-cancer markers 
 

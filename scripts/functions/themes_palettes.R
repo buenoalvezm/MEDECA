@@ -43,7 +43,7 @@ pal_disease_type<-
 pal_category <- 
   c("Cancer" = "#E16C54", 
     "No diagnosis" = "#BBDABB",
-    "Other diseases" = "#E9E7AB")
+    "Other diseases" = "#F4B183")
 
 
 pal_cancers <- c("#08585A",

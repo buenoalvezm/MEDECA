@@ -44,6 +44,11 @@ do_pca <- function(data,
     
     pca_prep <- prep(pca_rec)
     
+    # Extract proportion of variance explained
+    pca_variance <- 
+      tidy(pca_prep, number = 3, type = "variance")|> 
+      filter(terms  == "percent variance") 
+    
     tidied_pca <- tidy(pca_prep, 3)
     
   } else {
@@ -55,11 +60,15 @@ do_pca <- function(data,
     
     pca_prep <- prep(pca_rec)
     
+    pca_variance <- 
+      tidy(pca_prep, number = 3, type = "variance")|> 
+      filter(terms  == "percent variance") 
+    
     tidied_pca <- tidy(pca_prep, 2)
   }
   loadings_data <-
     tidied_pca |>
-    rename(Assay = terms,
+    dplyr::rename(Assay = terms,
            Value = value,
            PC = component)
   
@@ -97,11 +106,13 @@ do_pca <- function(data,
         "pca_res" = pca_res,
         "loadings" = loadings_data,
         "pca_plot" = pca_plot,
+        "pca_variance" = pca_variance,
         "loadings_plot" = loadings_plot
       )
     )
   } else {
     return(list("pca_res" = pca_res,
+                "pca_variance" = pca_variance,
                 "loadings" = loadings_data))
   }
   

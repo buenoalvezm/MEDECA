@@ -154,6 +154,8 @@ de_cancers <-
   })
 
 
+write_tsv(de_cancers, "data/processed/de_medeca.tsv")
+
 labels <- 
   de_cancers |>
   group_by(Cancer) |> 
@@ -207,6 +209,111 @@ ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
 
 ```
 
+## Direct comparison HPA
+
+```{r}
+de_hpa <- readRDS("../../../Library/CloudStorage/OneDrive-KTH/Repos/Pan-disease-profiling/data/processed/DE_v6/combined_de.rds") |> 
+  filter(Control == "Class")
+
+de_hpa |> 
+  filter(Control == "Class",
+         Disease %in% c("Diffuse large B-cell lymphoma", "Myeloma", "Lung cancer", "Small intestine neuroendocrine tumor", "Pancreatic cancer")) |> 
+  select()
+cancers_order <- 
+  c("Lung", 
+    "Lymfom", 
+    "Myelom", 
+    
+     "Neuroendocrine tumors",
+    "Pancreas or gall bladder or bile duct")
+
+
+combined_dataset <- 
+  combine_data(name_alvez = "Lung cancer", name = "Lung") |> 
+  bind_rows(combine_data(name_alvez = "Diffuse large B-cell lymphoma", name = "Lymfom")) |> 
+  bind_rows(combine_data(name_alvez = "Myeloma", name = "Myelom")) |> 
+  bind_rows(combine_data(name_alvez = "Small intestine neuroendocrine tumor", name = "Neuroendocrine tumors")) |> 
+  bind_rows(combine_data(name_alvez = "Pituitary neuroendocrine tumor", name = "Neuroendocrine tumors")) |> 
+  bind_rows(combine_data(name_alvez = "Pancreatic cancer", name = "Pancreas or gall bladder or bile duct"))
+
+labels <-
+  combined_dataset |> 
+  filter(p_value == "Both studies") |> 
+  group_by(Cancer) |>
+  mutate(rank_alvez = rank(-adj_pval_Alvez),
+         rank_medeca = rank(-adj_pval),
+         sum_rank = rank_alvez + rank_medeca) |> 
+  top_n(n = 5, wt = sum_rank)
+
+  #  p1 <- 
+      combined_dataset |> 
+      #mutate(Cancer = factor(Cancer, levels = "Lung", "Lymfom", "Myelom")) |>
+      ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval), color = p_value)) +
+      geom_text_repel(data = labels, aes(label = Assay), show.legend = F) +
+      #geom_text(data = labels, aes(label = Assay), show.legend = F) +
+      geom_point( show.legend = F) +
+      geom_hline(yintercept = -log10(0.05), slope = 1, linetype = 'dashed', color = "darkgrey") +
+      geom_vline(xintercept = -log10(0.05), slope = 1, linetype = 'dashed', color = "darkgrey") +
+      scale_color_manual(values = pal_pvalue) +
+      facet_wrap(~Cancer, scales = "free", nrow = 1) +
+      theme_hpa()
+      
+      ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
+      ggsave(savepath("de_comparison.pdf"), h = 5, w = 15)
+      
+      
+      a <- 
+        combined_dataset |>
+        mutate(FC = case_when(logFC_Alvez > 0 & logFC > 0 ~ "significant up",
+                              logFC_Alvez < 0 & logFC < 0 ~ "significant down",
+                              T ~ "not significant"))
+      
+      labels <-
+        a |> 
+        filter(FC != "not significant") |> 
+        group_by(Cancer) |>
+        mutate(rank_alvez = rank(logFC_Alvez),
+               rank_medeca = rank(logFC),
+               sum_rank = rank_alvez + rank_medeca) |> 
+        top_n(n = 5, wt = sum_rank)
+      
+      a |>
+        ggplot(aes(logFC_Alvez, logFC, color = FC)) +
+        geom_text_repel(data = labels, aes(label = Assay), show.legend = F) +
+        #geom_text(data = labels, aes(label = Assay), show.legend = F) +
+        geom_point( show.legend = F) +
+        geom_hline(yintercept = 0,  linetype = 'dashed', color = "darkgrey") +
+        geom_vline(xintercept = 0,  linetype = 'dashed', color = "darkgrey") +
+        scale_color_manual(values = pal_de) +
+        facet_wrap(~Cancer, scales = "free", nrow = 1) +
+      theme_hpa()
+      
+      ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
+      ggsave(savepath("de_comparison_FC.pdf"), h = 5, w = 15)
+
+      combine_data <- 
+  function(name_alvez, name) {
+    
+    data <- 
+      de_hpa |> 
+      filter(Disease == name_alvez) |> 
+      select(Assay, logFC_Alvez = logFC, adj_pval_Alvez = adj.P.Val) |> 
+      left_join(de_cancers |> 
+                  filter(Cancer == name) |> 
+                  select(Assay, logFC, adj_pval =  adj.P.Val), 
+                by = "Assay") |> 
+      mutate(p_value = case_when(
+        adj_pval < 0.05 & adj_pval_Alvez < 0.05 ~ "Both studies",
+        adj_pval < 0.05 ~ "One study",
+        adj_pval_Alvez < 0.05 ~ "One study",
+        TRUE ~ "None")) |> 
+      mutate(Cancer = name)
+        
+        return(data)
+  
+  }
+
+```
 
 
 ## Direct comparison pan-cancer

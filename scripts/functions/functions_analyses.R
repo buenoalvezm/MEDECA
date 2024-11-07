@@ -251,7 +251,7 @@ do_lasso <-
     
     glmnet_auc <- 
       final_glmnet_fit |> 
-      collect_metrics() |> 
+      collect_metrics(event_level = "second") |> 
       filter(.metric == "roc_auc") |> 
       pull(.estimate) |> 
       round(2)
@@ -546,3 +546,29 @@ do_gsea <- function(de_results,
   
   return(enrichment)
 }
+
+
+combine_data <- 
+  function(name_alvez, name) {
+    
+    data <- 
+      de_pancancer |> 
+      filter(Cancer == name_alvez) |> 
+      select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+      left_join(de_cancers |> 
+                  filter(Cancer == name) |> 
+                  select(Assay, logFC, adj_pval = adj.P.Val), 
+                by = "Assay") |> 
+      mutate(p_value = case_when(
+        adj_pval < 0.05 & adj_pval_Alvez < 0.05 ~ "Both studies",
+        adj_pval < 0.05 ~ "One study",
+        adj_pval_Alvez < 0.05 ~ "One study",
+        TRUE ~ "None")) |> 
+      mutate(Cancer = name)
+    
+    return(data)
+    
+  }
+
+
+  }

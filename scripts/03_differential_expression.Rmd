@@ -294,39 +294,19 @@ de_prots + characterization_prots
 ggsave(savepath("proteins_functional_characterization.pdf"), h = 12, w = 6)
 ```
 
-## UMAP
+# PCA
 
-## Heatmap
+## MEDECA
 
 ```{r}
-proteins_func
-
-ann <- 
-  meta_medeca |> 
-  select(Sample, Category) |> 
-  column_to_rownames("Sample")
-
-data |> 
-  dplyr::filter(Sample %in% meta_medeca$Sample,
-         Assay %in% proteins_func$Assay) |> 
-  group_by(Assay) |> 
-  mutate(NPX = scales::rescale(NPX, to = c(0:1))) |> 
-  pivot_wider(names_from = Assay, values_from = NPX) |> 
-  column_to_rownames("Sample") |>
-#  scale() |> 
-  t() |> 
-  pheatmap(show_colnames = F,
-           clusterin_method = "ward.D2",
-           annotation_col = ann)
-
-umap_data <- 
+pca_data <- 
   data |> 
   filter(Sample %in% meta_medeca$Sample,
          Assay %in% proteins_func$Assay) |> 
   pivot_wider(names_from = Assay, values_from = NPX)
 
-medeca_pca<- do_pca(data = umap_data, 
-                      wide = T)
+medeca_pca<- do_pca(data = pca_data, 
+                    wide = T)
 
 medeca_variance <- 
   medeca_pca$pca_variance |> 
@@ -342,23 +322,36 @@ pca_medeca <-
   ggplot(aes(PC1, PC2, color = Category)) +
   geom_point() +
   stat_ellipse(geom = "polygon", alpha = 0.2, aes(fill = Category), color = NA) +
-   scale_color_manual(values = pal_category) +
+  scale_color_manual(values = pal_category) +
   scale_fill_manual(values = pal_category) +
-  #  stat_density_2d(aes(fill = ..level..), geom = "polygon", alpha = 0.3) + 
   theme_hpa() +
   labs(
     x = paste0("PC1 (", round(medeca_variance_pc1, 2), "% variance explained)"),
     y = paste0("PC2 (", round(medeca_variance_pc2, 2), "% variance explained)")
   )
 
+final_pca_medeca <- 
+  ggMarginal(
+  pca_medeca,
+  type = "density",  # Marginal plot type (density plot)
+  margins = "x",  # Apply to both PC1 and PC2
+  size = 5,          # Adjust the size of the marginal plots
+  groupColour = TRUE, # Color by Category
+  groupFill = TRUE    # Fill by Category
+) |> 
+  as.ggplot()
+```
 
-umap_data_allvos <- 
+## ALLVOS
+
+```{r}
+pca_data_allvos <- 
   data |> 
   filter(Sample %in% meta_allvos$Sample,
          Assay %in% proteins_func$Assay) |> 
   pivot_wider(names_from = Assay, values_from = NPX)
 
-allvos_pca<- do_pca(data = umap_data_allvos, 
+allvos_pca<- do_pca(data = pca_data_allvos, 
                       wide = T)
 
 allvos_variance <- 
@@ -383,18 +376,6 @@ pca_allvos <-
     y = paste0("PC2 (", round(allvos_variance_pc2, 2), "% variance explained)")
   )
 
-library(ggExtra)
-final_pca_medeca <- 
-  ggMarginal(
-  pca_medeca,
-  type = "density",  # Marginal plot type (density plot)
-  margins = "x",  # Apply to both PC1 and PC2
-  size = 5,          # Adjust the size of the marginal plots
-  groupColour = TRUE, # Color by Category
-  groupFill = TRUE    # Fill by Category
-) |> 
-  as.ggplot()
-  
 final_pca_allvos <- 
   ggMarginal(
   pca_allvos,
@@ -405,22 +386,14 @@ final_pca_allvos <-
   groupFill = TRUE    # Fill by Category
 ) |> 
   as.ggplot()
+```
+
+## Combine
 
 
+```{r}
 final_pca_medeca/final_pca_allvos
 ggsave(savepath("pca_allvos_medeca.pdf"), width = 6, height = 10)
-
-medeca_umap<- do_umap(data = umap_data, 
-                      n_neighbors = 20,
-                      wide = T)
-
-medeca_umap |> 
-  left_join(meta_medeca, by = "Sample") |> 
-  ggplot(aes(UMAP1, UMAP2, color = Category)) +
-  geom_point() +
-#  stat_ellipse(geom = "polygon", alpha = 0.3, aes(fill = Category), color = NA) +
-  theme_hpa()
-  
 ```
 
 # Pathway analysis
@@ -441,6 +414,5 @@ plot_ora(enrichment = ora_res,
          pval_lim = 0.05,
          ncateg = 10,
          fontsize = 10) 
-
 ```
 

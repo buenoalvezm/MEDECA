@@ -16,6 +16,7 @@ library(ggridges)
 library(viridis)
 library(GGally)
 library(ggrain)
+library(ggExtra)
 
 # Function to generate PCA
 do_pca <- function(data,

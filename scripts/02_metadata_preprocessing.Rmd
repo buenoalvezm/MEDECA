@@ -168,7 +168,7 @@ meta_combined <-
               mutate(Cohort = "ALLVOS")) 
 ```
 
-# Filter data to include only samples with metadata
+## Filter data to include only samples with metadata
 
 ```{r}
 data_filtered <- 
@@ -181,7 +181,7 @@ nrow(meta_combined)
 length(unique(data_filtered$Sample))
 ```
 
-# Save data & metadata 
+# Save processed data & metadata 
 
 ```{r}
 dir.create("data/processed/final_data/")
@@ -192,9 +192,7 @@ write_csv(meta_medeca, "data/processed/final_data/medeca_metadata.csv")
 write_csv(meta_allvos, "data/processed/final_data/allvos_metadata.csv")  
 ```
 
-# Overview of the cohort
-
-## Figure 1
+# Cohort overview
 
 ```{r}
 meta_combined  |>
@@ -220,133 +218,3 @@ ggsave(savepath("n_medeca_allvos.pdf"), h = 3, w = 8)
 ```
 
 
-
-## Sample distribution MEDECA/ALLVOS
-
-```{r}
-# Visualize the number of cases in both cohorts
-p_right <- 
-  meta_combined  |>
-  group_by(Cancer) |>
-  count(Cohort) |>
-  ungroup() |> 
-  group_by(Cohort) |> 
-  mutate(cum_n = cumsum(n)) |> 
-  mutate(Cancer = factor(Cancer, levels = c("Yes", "No")),
-         Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS")))) |>
-  ggplot(aes(Cohort, n, fill = Cancer)) +
-  geom_col(width = 0.5) +
-  scale_fill_manual(values = pal_cancer) + 
-  geom_text(aes(label = n, y = cum_n - 20), vjust = -0.5, fontface = "bold", color = "white") +
-  theme_hpa() +
-#  ggtitle("Cancer detection") +
-  coord_flip() +
-  theme(axis.title.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.line.y = element_blank())
-
-p_left <- 
-  meta_combined  |>
-  group_by(Cohort) |>
-  count(Sex) |>
-  ungroup() |> 
-  group_by(Cohort) |> 
-  mutate(cum_n = cumsum(n)) |> 
-  mutate(Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS"))),
-         Sex = factor(Sex, levels = c("Male", "Female"))) |>
-  ggplot(aes(Cohort, n, fill = Sex)) + 
-  geom_col(width = 0.5) +
-  scale_fill_manual(values = pal_sex) + 
-  geom_text(aes(label = n, y = cum_n - 20), vjust = -0.5, fontface = "bold", color = "white") +
-  theme_hpa(axis_y = F) + 
-  scale_y_reverse() +
-  coord_flip() +
-  theme(legend.position = "left")
-  
-p_age <- 
-  meta_combined |>
-  ggplot(aes(y = Cohort, x = Age, fill = Cancer)) +
-  geom_density_ridges(quantile_lines = TRUE, quantiles = 2, alpha = 0.6, show.legend = F, scale = 1) +
-  scale_fill_manual(values = pal_cancer) +
-  theme_hpa(axis_y = F) 
-  
-p_left + p_right + p_age
-ggsave(savepath("cancer_detected_cohort.pdf"), h = 4, w = 12)
-
-```
-
-## Controls MEDECA
-
-```{r}
-meta_medeca |>  
-  group_by(Category) |>
-  filter(Disease_type != "Cancer") |> 
-  count(Disease_type) |> 
-  mutate(total = sum(n)) |> 
-  ggplot(aes(Category, n, fill = Disease_type)) +
-  geom_col() +
-  geom_text(aes(label = total, y = total + 5)) + 
-  scale_fill_manual(values = pal_group) +
-  theme_hpa() +
-  ggtitle("MEDECA controls") +
-  xlab("")
-  
-#ggsave(savepath("MEDECA_controls.png"), h = 5, w = 5)
-
-meta_medeca |>  
-  filter(Disease_type != "Cancer") |> 
-  group_by(Disease_type) |> 
-  count() |> 
-  ggplot(aes(Disease_type, n, fill = Disease_type)) +
-  geom_col() +
-  geom_text(aes(label = n, y = n + 5)) + 
-  scale_fill_manual(values = pal_group) +
-  theme_hpa(angled = T) +
-  xlab("")
-  
-#ggsave(savepath("MEDECA_controls.pdf"), h = 5, w = 4)
-```
-
-## PCA MEDECA
-
-```{r}
-# Subset MEDECA data
-data_medeca <- 
-  data |> 
-  filter(Sample %in% meta_medeca$Sample)
-
-# Run PCA
-pca_medeca <- 
-  do_pca(data = data_medeca, 
-         meta = meta_medeca,
-         variable = "Disease_type", 
-         wide = F,
-         impute = T,
-         plots = T)
-
-pca_medeca$pca_plot 
-
-# Manuscript figure
-pca_medeca$pca_res %>%
-  left_join(meta_medeca, by = "Sample") %>%
-  ggplot(aes(PC1, PC2)) +
-  geom_point(aes(color = Category), alpha = 0.7, size = 2, show.legend = F) +
-  scale_color_manual(values = pal_group_3) +
-  labs(color = NULL) +
-  theme_hpa() +
-
-meta_medeca |>
-  group_by(Category, Disease_type) |> 
-  count() |> 
-  mutate(Disease_type = factor(Disease_type, levels = rev(levels(Disease_type)))) |> 
-  ggplot(aes(Disease_type, n, fill = Category)) +
-  geom_col() +
-  geom_text(aes(label = n, y = n + 5)) + 
-  scale_fill_manual(values = pal_group_3) +
-  coord_flip() +
-  theme_hpa(angled = T) +
-  xlab("") +
-  ylab("Number of samples")
-  
-ggsave(savepath("MEDECA_controls.pdf"), h = 4.5, w = 10)
-```

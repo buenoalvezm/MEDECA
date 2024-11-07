@@ -229,23 +229,6 @@ plot_beeswarm_cohorts <- function(proteins,
   
 }
 
-# Function to generate a raincloud plot in MEDECA/ALLVOS for selected proteins
-plot_raincloud_cohorts <- function(proteins) {
-  data |> 
-    filter(Assay %in% proteins) |> 
-    left_join(metadata |> 
-                select(Sample, Cancer, Cohort), by = "Sample") |> 
-    mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
-           Assay = factor(Assay, levels = top_proteins)) |> 
-    ggplot(aes(Cancer, NPX, fill = Cancer, color = Cancer)) +
-    geom_rain(alpha = 0.5) +
-    facet_grid(Assay~Cohort, scales = "free") +
-    scale_color_manual(values = pal_cancer) +
-    scale_fill_manual(values = pal_cancer) +
-    theme_hpa()
-  
-}
-
 plot_beeswarm_pancancer <- function(protein) {
   
   cancer <- 

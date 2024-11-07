@@ -46,38 +46,11 @@ medeca_de <-
            case = "Yes",
            correct = T) 
 
-saveRDS(medeca_de, savepath_data("DE", "de_medeca.rds"))
-
-volcano_medeca <- plot_volcano(medeca_de) + ggtitle("MEDECA")
+#saveRDS(medeca_de, savepath_data("DE", "de_medeca.rds"))
+#volcano_medeca <- plot_volcano(medeca_de) + ggtitle("MEDECA")
+#medeca_de <- readRDS(savepath_data("DE", "de_medeca.rds"))
 ```
 
-## GSEA
-
-```{r}
-db <- c("GO", "Reactome") #"KEGG
-
-gsea_medeca_db <- 
-  map(db, \(current_db) {
-    
-    gsea_medeca <- 
-      do_gsea(de_results = medeca_de,
-              database = current_db,
-              pval_lim = 0.05) 
-    
-    gsea_plots <- 
-      plot_gsea(enrichment = gsea_medeca,
-                de_results = medeca_de,
-                pval_lim = 0.05,
-                ncateg = 10,
-                fontsize = 10)
-  }) |> 
-  set_names(db)
-
-gsea_medeca_db$Reactome$dotplot
-ggsave(savepath("gsea_reactome_medeca.png"), h = 4, w = 6)
-gsea_medeca_db$GO$dotplot
-ggsave(savepath("gsea_GO_medeca.png"), h = 5, w = 6)
-```
 
 # ALLVOS
 
@@ -101,37 +74,29 @@ allvos_de <-
            case = "Yes",
            correct = T) 
  
-saveRDS(allvos_de, savepath_data("DE", "de_allvos.rds"))
-
-volcano_allvos <- plot_volcano(allvos_de) + ggtitle("ALLVOS")
+#saveRDS(allvos_de, savepath_data("DE", "de_allvos.rds"))
+#volcano_allvos <- plot_volcano(allvos_de) + ggtitle("ALLVOS")
+#allvos_de <- readRDS(savepath_data("DE", "de_allvos.rds"))
 ```
-## GSEA
+
+
+# Direct comparison
 
 ```{r}
-db <- c("GO", "Reactome") #"KEGG
+allvos_de |> 
+  select(Assay, logFC_ALLVOS = logFC, pval_ALLVOS = adj.P.Val) |> 
+  left_join(medeca_de |> 
+              select(Assay, logFC_MEDECA = logFC, pval_MEDECA = adj.P.Val), by = "Assay") |> 
+  ggplot(aes(logFC_ALLVOS, logFC_MEDECA)) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay), size = 2) +
+  geom_vline(xintercept = 0, color = "grey") +
+  geom_hline(yintercept = 0, color = "grey") +
+  theme_hpa()
 
-gsea_allvos_db <- 
-  map(db, \(current_db) {
-    
-    gsea_allvos <- 
-      do_gsea(de_results = allvos_de,
-              database = current_db,
-              pval_lim = 0.05) 
-    
-    gsea_plots <- 
-      plot_gsea(enrichment = gsea_allvos,
-                de_results = allvos_de,
-                pval_lim = 0.05,
-                ncateg = 10,
-                fontsize = 10)
-  }) |> 
-  set_names(db)
-
-gsea_allvos_db$Reactome$dotplot
-ggsave(savepath("gsea_reactome_allvos.png"), h = 5, w = 6)
-gsea_allvos_db$GO$dotplot
-ggsave(savepath("gsea_GO_allvos.png"), h = 6, w = 6)
+ggsave(savepath("proteins_MEDECA_ALLVOS.pdf"), h = 8, w = 8)
 ```
+
 
 
 # Volcano plot
@@ -161,7 +126,7 @@ ggsave(savepath("MEDECA_ALLVOS_volcano.pdf"), h = 4, w = 4)
 
 ```{r}
 # Select top replicated proteins
-proteins <- 
+replicated_proteins <- 
   medeca_de |> 
   left_join(allvos_de |> 
               select(Assay, 
@@ -179,62 +144,22 @@ proteins <-
          pval_ALLVOS) 
 
 top_proteins <- 
-  proteins |> 
+  replicated_proteins |> 
   head(7) |> 
   pull(Assay)
+           
+plot_beeswarm_cohorts(data = data,
+                      metadata = metadata,
+                      variable = "Cancer",
+                      palette = pal_cancer,
+                      proteins = top_proteins)
 
-plot_raincloud_cohorts(proteins = top_proteins)
-plot_beeswarm_cohorts(proteins = top_proteins)
 ggsave(savepath("top_proteins.pdf"), h = 12, w = 5)
-
-# # Heatmap
-# annotation_cols <- 
-#   proteins |> 
-#   column_to_rownames("Assay") 
-# 
-# combined_meta <- 
-#   meta_medeca |> 
-#   select(Sample, Cancer) |> 
-#   mutate(Cohort = "MEDECA") |> 
-#   bind_rows(meta_allvos |> 
-#   select(Sample, Cancer) |> 
-#   mutate(Cohort = "ALLVOS")) 
-# 
-# annotation_rows <- 
-#   combined_meta |> 
-#   column_to_rownames("Sample") 
-# 
-# reduced_data <- 
-#   data |> 
-#   filter(Assay %in% proteins$Assay,
-#          Sample %in% c(meta_allvos$Sample, meta_medeca$Sample)) 
-# 
-# reduced_data |> 
-#   filter(Sample %in% metadata$Sample) |> 
-#   pivot_wider(names_from = Assay, values_from = NPX) |> 
-#   column_to_rownames("Sample") |> 
-#   scale() |> 
-#   pheatmap(show_rownames = F,
-#            clustering_method = "ward.D2",
-#            annotation_row = annotation_rows,
-#            annotation_col = annotation_cols)
-# 
-# pca_reduced <- 
-#   do_pca(data = reduced_data,
-#        meta = combined_meta,
-#        variable = "Cohort",
-#        wide = F,
-#        plots = T)
-# 
-# pca_reduced$pca_plot
 ```
 
 # Functional characterization
 
 ```{r}
-medeca_de <- readRDS(savepath_data("DE", "de_medeca.rds"))
-allvos_de <- readRDS(savepath_data("DE", "de_allvos.rds"))
-
 proteins_func <- 
   medeca_de |> 
   select(Assay, logFC, adj.P.Val) |> 
@@ -242,17 +167,17 @@ proteins_func <-
   bind_rows(allvos_de |> 
               select(Assay, logFC, adj.P.Val) |> 
               mutate(Cohort = "ALLVOS")) |> 
-  filter(Assay %in% proteins$Assay)
+  filter(Assay %in% replicated_proteins$Assay)
 
-secreted <- 
-  hpa |> 
-  distinct(Secretome.location) |> 
-  filter(grepl("Secreted", Secretome.location)) |> 
+secreted <-
+  hpa |>
+  distinct(Secretome.location) |>
+  filter(grepl("Secreted", Secretome.location)) |>
   pull()
 
 de_prots <- 
   proteins_func |> 
-  mutate(Assay= factor(Assay, levels = rev(proteins$Assay)),
+  mutate(Assay= factor(Assay, levels = rev(replicated_proteins$Assay)),
          Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
   ggplot(aes(Cohort, Assay, color = logFC, size = -log10(adj.P.Val))) +
   geom_point() +
@@ -265,7 +190,7 @@ de_prots <-
 
 characterization_prots <- 
   hpa |> 
-  filter(Gene %in% proteins$Assay) |> 
+  filter(Gene %in% replicated_proteins$Assay) |> 
   select(Gene,
          RNA.tissue.specificity, 
          Secretome.location,
@@ -279,7 +204,7 @@ characterization_prots <-
          Cancer_related = case_when(grepl("Cancer",Disease.involvement) ~ "Yes",
                                     grepl("Proto-oncogene",Disease.involvement) ~ "Yes",
                                     T ~ "No"),
-         Gene = factor(Gene, levels = rev(proteins$Assay))) |> 
+         Gene = factor(Gene, levels = rev(replicated_proteins$Assay))) |> 
   select(Gene, Secreted, Tissue_enriched, Cancer_related, Pan_cancer_maker) |> 
   pivot_longer(cols = -Gene, names_to = "Type", values_to = "Value") |> 
   ggplot(aes(Type, Gene, fill = Value)) +
@@ -396,23 +321,105 @@ final_pca_medeca/final_pca_allvos
 ggsave(savepath("pca_allvos_medeca.pdf"), width = 6, height = 10)
 ```
 
-# Pathway analysis
+## Explore PC1 - MEDECA & ALLVOS
 
 ```{r}
-ora_res <- 
-  do_ora(protein_list = proteins_func$Assay,
-       database = "GO",
-       background = unique(data$Assay),
-       pval_lim = 0.05) 
 
-ora_res |> 
-  as_tibble() |> 
-  filter(p.adjust < 0.05)
 
-plot_ora(enrichment = ora_res,
-         #protein_list,
-         pval_lim = 0.05,
-         ncateg = 10,
-         fontsize = 10) 
+
+#pc1_medeca_plot <- 
+medeca_pca$loadings |> 
+  filter(PC == "PC1") |> 
+  mutate(dataset = "MEDECA") |> 
+  bind_rows(allvos_pca$loadings |> 
+              filter(PC == "PC1")  |> 
+              mutate(dataset = "ALLVOS")) |> 
+  mutate(dataset = factor(dataset, levels = c("MEDECA", "ALLVOS"))) |>
+  ggplot(aes(reorder_within(Assay, Value, dataset), Value, fill = Value)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(~dataset, ncol = 1, scales = "free") +
+  theme_hpa() +
+  xlab("") +
+  scale_fill_distiller(type = "div") +
+  scale_x_reordered() +
+  theme(axis.ticks.y = element_blank(),
+        axis.line.y = element_blank()) 
+
+ggsave(savepath("loadings_pc1.pdf"), h = 10, w = 4)
+
+
+# Compare directly
+
+medeca_pca$loadings |> 
+  filter(PC == "PC1") |> 
+  select(Assay, MEDECA_value = Value) |> 
+  left_join(allvos_pca$loadings |> 
+              filter(PC == "PC1")  |> 
+              select(Assay, ALLVOS_value = Value), by = "Assay") |> 
+  ggplot(aes(MEDECA_value, ALLVOS_value)) +
+  geom_point() +
+  geom_text_repel(aes(label = Assay)) +
+  theme_hpa()
+
+ggsave(savepath("comparison_pc1.pdf"), h = 8, w = 8)
+
+# Overlap
+pc1_medeca <- 
+  medeca_pca$loadings |> 
+  filter(PC == "PC1") |> 
+  pull(Assay)
+
+pc1_allvos <- 
+  allvos_pca$loadings |> 
+  filter(PC == "PC1") |> 
+  pull(Assay)
+
+y <- list("MEDECA" = pc1_medeca, 
+          "ALLVOS" =pc1_allvos)
+
+plot(euler(y, shape = "ellipse"), quantities = TRUE,  alpha = 0.5) |> as.ggplot() +
+  ggtitle("Severe ROP") +
+  theme(plot.title = element_text(hjust = 0.5,
+                                  face = "bold"))
+
+```
+
+## Boxplots
+
+```{r}
+proteins <- c("DPY30", "MAD1L1", "METAP1D", "FKBP4", "GRPEL1", "ZBTB17")
+
+variable <- "Category"
+palette <- pal_category
+data |> 
+    filter(Assay %in% proteins,
+           Sample %in% metadata$Sample) |>
+    left_join(metadata |> 
+                select(Sample, !!sym(variable), Cohort), by = "Sample") |> 
+    mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
+           Category = factor(Category, levels = c("No diagnosis", "Other diseases", "Cancer")),
+           Assay = factor(Assay, levels = proteins)) |> 
+    ggplot(aes(!!sym(variable), NPX, fill = !!sym(variable), color = !!sym(variable))) +
+    geom_quasirandom(size = 0.5) +
+    geom_boxplot(alpha = 0.5, outlier.color = NA) +
+    stat_summary(fun = "median",
+                 geom = "crossbar", 
+                 width = 0.2,
+                 colour = "grey20",
+                 show.legend = F) +
+    facet_grid(Assay~Cohort, scales = "free") +
+    scale_color_manual(values = palette) +
+    scale_fill_manual(values = palette) +
+    theme_hpa(angled = T, axis_x = F) +
+  theme(legend.position = "top")
+
+ggsave(savepath("proteins_continuous.pdf"), h = 11, w = 5)
+```
+
+# PLSDA?
+
+```{r}
+
 ```
 

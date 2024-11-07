@@ -194,6 +194,32 @@ write_csv(meta_allvos, "data/processed/final_data/allvos_metadata.csv")
 
 # Overview of the cohort
 
+## Figure 1
+
+```{r}
+meta_combined  |>
+  group_by(Cancer) |>
+  count(Cohort) |>
+  mutate(Cancer = case_when(Cancer == "Yes" ~ "Cancer",
+                            Cancer == "No" ~ "No cancer")) |> 
+mutate(Cancer = factor(Cancer, levels = c("Cancer", "No cancer")),
+         Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS")))) |>
+
+  ggplot(aes(Cancer, n, fill = Cancer)) +
+  geom_col(width = 0.5) +
+  scale_fill_manual(values = c(pal_cancer[[1]], pal_cancer[[2]])) + 
+  geom_text(aes(label = paste0("n = ", n), y =n + 40), vjust = 0.5, fontface = "bold", color = "grey20") +
+  theme_hpa() +
+  facet_wrap(~Cohort, scales = "free_y") +
+  coord_flip() +
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank())
+
+ggsave(savepath("n_medeca_allvos.pdf"), h = 3, w = 8)
+```
+
+
 
 ## Sample distribution MEDECA/ALLVOS
 

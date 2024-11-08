@@ -26,7 +26,7 @@ pancancer_markers <- import_df("data/41467_2023_39765_MOESM7_ESM.xlsx")
 # Select specific cancers
 
 ```{r}
-cancers_order <- 
+cancer_order <- 
   c("Lung", 
     "Lymfom", 
     "Myelom", 
@@ -49,7 +49,7 @@ selected_samples_de <-
 
 ```{r}
 de_cancers <- 
-  map_df(cancers_order, function(cancer) {
+  map_df(cancer_order, function(cancer) {
     
     limma_meta_medeca <- 
       meta_medeca |> 

@@ -123,3 +123,10 @@ theme_hpa <-
     return(t)
   }
 
+pal_controls <- 
+  c("No diagnosis" = "#BBDABB",
+    "Infectious" = "#E5B9AD", 
+    "Autoimmune" = "#D98994",
+    "Inflammatory" = "#D0587E",
+    "Other" = "grey")
+

@@ -7,6 +7,7 @@
 library(limma)
 library(tidymodels)
 library(themis)
+library(eulerr)
 
 # Function to run differential expression using limma
 do_limma <-

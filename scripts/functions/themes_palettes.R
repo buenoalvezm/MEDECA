@@ -71,6 +71,17 @@ pal_heatmap <-
   brewer.pal(9, name = "YlOrRd") |>  
   colorRampPalette()
 
+pal_controls <- 
+  c("No diagnosis" = "#BBDABB",
+    "Infectious" = "#E5B9AD", 
+    "Autoimmune" = "#D98994",
+    "Inflammatory" = "#D0587E",
+    "Other" = "grey")
+
+pal_pvalue <- c("Both studies" = "#945785", 
+                "One study" = "#DAA4AB", 
+                "None" = "grey")
+
 # HPA theme
 theme_hpa <- 
   function(angled = F, axis_x = T, axis_y = T, facet_title = T) {
@@ -123,10 +134,5 @@ theme_hpa <-
     return(t)
   }
 
-pal_controls <- 
-  c("No diagnosis" = "#BBDABB",
-    "Infectious" = "#E5B9AD", 
-    "Autoimmune" = "#D98994",
-    "Inflammatory" = "#D0587E",
-    "Other" = "grey")
+
 

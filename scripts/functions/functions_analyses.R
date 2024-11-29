@@ -445,9 +445,9 @@ combine_data <-
   function(name_alvez, name) {
     
     data <- 
-      de_pancancer |> 
-      filter(Cancer == name_alvez) |> 
-      select(Assay, logFC_Alvez = NPX_difference, adj_pval_Alvez = p.adjusted) |> 
+      de_hpa |> 
+      filter(Disease == name_alvez) |> 
+      select(Assay, logFC_Alvez = logFC, adj_pval_Alvez = adj.P.Val) |> 
       left_join(de_cancers |> 
                   filter(Cancer == name) |> 
                   select(Assay, logFC, adj_pval = adj.P.Val), 

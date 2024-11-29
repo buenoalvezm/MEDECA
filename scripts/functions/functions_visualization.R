@@ -354,6 +354,35 @@ plot_lollipop <- function(protein_list) {
       legend.position = "top"
     )
 }
+
+plot_densities <- function(predictions,
+                           test_data,
+                           metadata) {
+  
+  densiy_data <- 
+    predictions|> 
+    mutate(Sample = test_data$Sample) |>
+    left_join(metadata |> 
+                select(Sample, Disease_type), by = "Sample") |> 
+    mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) 
+  
+  densiy_data |> 
+    ggplot(aes(.pred_Case, fill = Disease_type,  color = Disease_type)) +
+    geom_density(alpha = 0.7, show.legend = F) +
+    geom_vline(data = densiy_data |> 
+                 group_by(Disease_type) |> 
+                 summarise(mean_pred = mean(.pred_Case, na.rm = TRUE)), 
+               aes(xintercept = mean_pred, color = Disease_type), 
+               linetype = "dashed", size = 1, show.legend = F) +
+    scale_fill_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +   
+    scale_color_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +   
+    facet_wrap(~Disease_type, ncol = 1) +
+    theme_hpa() +
+    theme(legend.position = "top") +
+    xlab("Probability cancer") 
+  
+}
+
 plot_roc_curve <- function(roc,
                            auc) {
   roc |> 
@@ -376,6 +405,90 @@ plot_roc_curve <- function(roc,
     coord_fixed() +
     theme(legend.position = "top") +
     ggtitle(paste0("AUC = ", round(auc, 2)))
+}
+
+plot_roc_tiles <- function(predictions, 
+                           test_data,
+                           metadata) {
+  controls <- 
+    metadata |> 
+    distinct(Disease_type) |> 
+    filter(!Disease_type %in% c("Cancer")) |> 
+    pull()
+  
+  auc_controls <- 
+    map_df(controls, function(control) {
+      predictions |> 
+        mutate(Sample = test_data$Sample) |>
+        left_join(metadata |> 
+                    select(Sample, Disease_type), by = "Sample") |> 
+        filter(Disease_type %in% c(control, "Cancer")) |> 
+        roc_auc(truth = Class, .pred_Case, event_level = "second") |> 
+        mutate(Control = control)
+      
+    })
+  
+  roc_controls <- 
+    map_df(controls, function(control) {
+      predictions |> 
+        mutate(Sample = test_data$Sample) |>
+        left_join(metadata |> 
+                    select(Sample, Disease_type), by = "Sample") |> 
+        filter(Disease_type %in% c(control, "Cancer")) |> 
+        roc_curve(truth = Class, .pred_Case, event_level = "second") |> 
+        mutate(Control = control)
+      
+    })
+  
+  tiles <- tibble(
+    Control = auc_controls$Control,
+    AUC = round(auc_controls$.estimate, 2)
+  ) |> 
+    mutate(Control = factor(Control, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory"))) |> 
+    arrange(Control) |> 
+    mutate(specificity = rep(0.2, 5),
+           sensitivity = c(0.1, 0.2, 0.3, 0.4, 0.5))
+  # Modify the ROC plot to include facets for each disease group
+  roc_controls |> 
+    ggplot(aes(
+      x = 1 - specificity,
+      y = sensitivity,
+      group = Control
+    )) +
+    geom_path(aes(color = Control), size = 1) +
+    geom_segment(
+      aes(x = 0, y = 0, xend = 1, yend = 1),
+      colour = 'grey',
+      linetype = 'dotdash'
+    ) +
+    geom_tile(
+      width = 0.2, 
+      height = 0.1,
+      data = tiles,
+      aes(fill = Control),
+      show.legend = FALSE
+    ) +
+    geom_text(
+      data = tiles,
+      aes(label = AUC),
+      size = 3,
+      color = "white",
+      show.legend = FALSE
+    ) +
+    geom_text(
+      label = "AUC",
+      x = 0.8,
+      y = 0.6,
+      size = 3,
+      inherit.aes = FALSE
+    ) +
+    scale_color_manual(values = pal_controls) + # Add colors for each disease
+    scale_fill_manual(values = pal_controls) +
+    scale_x_continuous(breaks = c(0, 1)) +
+    scale_y_continuous(breaks = c(0, 1)) +
+    theme_hpa() +
+    coord_fixed() +
+    theme(legend.position = "top")
 }
 
 plot_ora <- function(enrichment,

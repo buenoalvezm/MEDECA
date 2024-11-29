@@ -416,10 +416,3 @@ data |>
 
 ggsave(savepath("proteins_continuous.pdf"), h = 11, w = 5)
 ```
-
-# PLSDA?
-
-```{r}
-
-```
-

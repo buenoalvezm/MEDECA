@@ -346,6 +346,7 @@ do_glmnet <-
                 "glmnet_model" = glmnet_res,
                 "predictions_train" = predictions_train, 
                 "performance_train" = metrics_train,
+                "current_training" = training_dat, 
                 "final_workflow" = glmnet_wflow,
                 "final_fit" = final_glmnet_fit,
                 "predictions" = predictions,

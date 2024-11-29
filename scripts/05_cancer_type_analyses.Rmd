@@ -53,9 +53,9 @@ de_cancers <-
     
     limma_meta_medeca <- 
       meta_medeca |> 
-      filter(Sample %in% selected_samples$Sample) |>
+      filter(Sample %in% selected_samples_de$Sample) |>
       select(-Cancer) |> 
-      left_join(selected_samples, by = "Sample") |>
+      left_join(selected_samples_de, by = "Sample") |>
       mutate(Cancer = ifelse(Cancer == cancer, cancer, "Control")) |> 
       select(Sample, Cancer, Age, Sex) 
     
@@ -77,8 +77,7 @@ de_cancers <-
     
   })
 
-
-write_tsv(de_cancers, "data/processed/de_medeca.tsv")
+#write_tsv(de_cancers, "data/processed/de_medeca.tsv")
 #de_cancers <- read_tsv("data/processed/de_medeca.tsv")
 ```
 
@@ -91,7 +90,7 @@ labels <-
   top_n(n = 10, wt = -log10(adj.P.Val)) 
 
 de_cancers |> 
-  mutate(Cancer = factor(Cancer, levels = cancers_order)) |> 
+  mutate(Cancer = factor(Cancer, levels = cancer_order)) |> 
   ggplot(aes(x = logFC, y = -log10(adj.P.Val), color = sig, label = Assay)) +
   geom_point(size = 1, alpha = 0.4) + #, show.legend = F 
   geom_text_repel(data = labels, size = 2, show.legend = F) +
@@ -104,7 +103,7 @@ de_cancers |>
   theme(axis.text = element_text(size = 8),
         legend.position = "right")   
 
-ggsave(savepath("cancer_de_volcanos.pdf"), h = 3, w = 12)
+#ggsave(savepath("cancer_de_volcanos.pdf"), h = 3, w = 12)
 ```
 
 
@@ -114,7 +113,7 @@ ggsave(savepath("cancer_de_volcanos.pdf"), h = 3, w = 12)
 ```{r}
 top_marker_cancer <- 
   de_cancers |> 
-  mutate(Cancer = factor(Cancer, levels = cancers_order)) |> 
+  mutate(Cancer = factor(Cancer, levels = cancer_order)) |> 
   group_by(Cancer) |> 
   top_n(2, -adj.P.Val) |> 
   arrange(Cancer)
@@ -123,7 +122,7 @@ data |>
   filter(Sample %in% selected_samples_de$Sample,
          Assay %in% top_marker_cancer$Assay) |> 
   left_join(selected_samples_de, by = "Sample") |> 
-  mutate(Cancer = factor(Cancer, levels = cancers_order),
+  mutate(Cancer = factor(Cancer, levels = cancer_order),
          Assay = factor(Assay, levels = top_marker_cancer$Assay)) |> 
   ggplot(aes(Cancer, NPX, color = Cancer, fill = Cancer)) +
   geom_quasirandom(alpha = 0.8, size = 1, show.legend = F) +
@@ -134,7 +133,7 @@ data |>
   theme_hpa(angled = T,
             axis_x = F)
 
-ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
+#ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
 ```
 
 # Direct comparison HPA
@@ -143,6 +142,7 @@ ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
 de_hpa <- readRDS("../../../Library/CloudStorage/OneDrive-KTH/Repos/Pan-disease-profiling/data/processed/DE_v6/combined_de.rds") |> 
   filter(Control == "Class")
 
+# Process data
 combined_dataset <- 
   combine_data(name_alvez = "Lung cancer", name = "Lung") |> 
   bind_rows(combine_data(name_alvez = "Diffuse large B-cell lymphoma", name = "Lymfom")) |> 
@@ -173,9 +173,7 @@ combined_dataset |>
   facet_wrap(~Cancer, scales = "free", nrow = 1) +
   theme_hpa()
 
-ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
-ggsave(savepath("de_comparison.pdf"), h = 4, w = 15)
-
+#ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
 
 # Visualize fold change comparison      
 combined_dataset_fc <- 
@@ -183,7 +181,6 @@ combined_dataset_fc <-
   mutate(FC = case_when(logFC_Alvez > 0 & logFC > 0 ~ "significant up",
                         logFC_Alvez < 0 & logFC < 0 ~ "significant down",
                         T ~ "not significant"))
-
 labels <-
   combined_dataset_fc |> 
   filter(FC != "not significant") |> 
@@ -204,5 +201,5 @@ combined_dataset_fc |>
   facet_wrap(~Cancer, scales = "free", nrow = 1) +
   theme_hpa()
 
-ggsave(savepath("de_comparison_FC.pdf"), h = 5, w = 15)
+#ggsave(savepath("de_comparison_FC.pdf"), h = 5, w = 15)
 ```

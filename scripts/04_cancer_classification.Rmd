@@ -412,6 +412,73 @@ ml_medeca_filter$predictions |>
   xlab("Probability cancer") 
 
 #ggsave(savepath("prob_meodels.pdf"), h = 5, w = 7)
+
+ml_medeca_filter$predictions |> 
+  ggplot(aes(.pred_Case, fill = Class,  color = Class)) +
+  geom_density(alpha = 0.7, show.legend = F) +
+  geom_vline(data = ml_medeca_filter$predictions  %>% group_by(Class) %>% 
+               summarise(mean_pred = mean(.pred_Case, na.rm = TRUE)), 
+             aes(xintercept = mean_pred, color = Class), 
+             linetype = "dashed", size = 1, show.legend = F) +
+  scale_fill_manual(values = c("Case" = "#E16C54", "Control" = "#A0CBC7")) + 
+  scale_color_manual(values = c("Case" = "#E16C54", "Control" = "#A0CBC7")) + 
+  theme_hpa() +
+  xlab("Probability cancer") +
+  
+  allvos_predictions|> 
+  ggplot(aes(.pred_Case, fill = True_Class,  color = True_Class)) +
+  geom_density(alpha = 0.7) +
+  geom_vline(data = allvos_predictions %>% group_by(True_Class) %>% 
+               summarise(mean_pred = mean(.pred_Case, na.rm = TRUE)), 
+             aes(xintercept = mean_pred, color = True_Class), 
+             linetype = "dashed", size = 1, show.legend = F) +
+  scale_fill_manual(values = c("Case" = "#E16C54", "Control" = "#A0CBC7")) +   
+  scale_color_manual(values = c("Case" = "#E16C54", "Control" = "#A0CBC7")) + 
+  theme_hpa() +
+  theme(legend.position = "top") +
+  xlab("Probability cancer") 
+
+#ggsave(savepath("prob_meodels.pdf"), h = 5, w = 7)
+
+ml_medeca_filter$predictions  |> 
+  select(Probability = .pred_Case,
+         Class) |> 
+  mutate(Class = case_when(Class == "Case" ~ "Yes",
+                           Class == "Control" ~ "No")) |> 
+  ggplot(aes(Class, Probability, fill = Class, color = Class)) +
+  geom_quasirandom(show.legend = F) +
+  geom_violin(alpha = 0.3, show.legend = F) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.3,
+               colour = "grey20",
+               show.legend = F) +
+   scale_fill_manual(values = c("Yes" = "#E16C54", "No" = "#A0CBC7")) +   
+  scale_color_manual(values = c("Yes" = "#E16C54", "No" = "#A0CBC7")) + 
+  xlab("Cancer") + 
+  theme_hpa()  +
+
+allvos_predictions |> 
+  select(Probability = .pred_Case,
+         True_Class) |> 
+  mutate(True_Class = case_when(True_Class == "Case" ~ "Yes",
+                                True_Class == "Control" ~ "No")) |> 
+  ggplot(aes(True_Class, Probability, fill = True_Class, color = True_Class)) +
+  geom_quasirandom(show.legend = F) +
+  geom_violin(alpha = 0.3, show.legend = F) +
+  stat_summary(fun = "mean",
+               geom = "crossbar", 
+               width = 0.3,
+               colour = "grey20",
+               show.legend = F) +
+  scale_fill_manual(values = c("Yes" = "#E16C54", "No" = "#A0CBC7")) +   
+  scale_color_manual(values = c("Yes" = "#E16C54", "No" = "#A0CBC7")) + 
+  xlab("Cancer") +
+  theme_hpa() 
+
+ggsave(savepath("prob_models.pdf"), h = 4, w = 6)
+
+
 ```
 
 
@@ -456,18 +523,25 @@ plot_densities(predictions =  allvos_predictions,
 ## Plot proteins across control groups
 
 ```{r}
-proteins <- c("AGR2", "RRM2", "KRT19", "CEACAM5", "PARP1", "PSIP1")
+proteins <- c("AGR2", "RRM2", "KRT19", "CEACAM5", "PARP1")
 
 data |> 
   filter(Assay %in% proteins,
          Sample %in% metadata$Sample) |> 
   left_join(metadata |> 
               select(Sample, Disease_type, Cohort), by = "Sample") |> 
-  mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) |> 
+  mutate(Disease_type = factor(Disease_type, levels = c("Other", "No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer")),
+         Cancer = case_when(
+           Disease_type == "Other" ~ "No_0", 
+           Disease_type == "No diagnosis" ~ "No_1", 
+           Disease_type == "Infectious" ~ "No_2", 
+           Disease_type == "Autoimmune" ~ "No_3", 
+           Disease_type == "Inflammatory" ~ "No_4",
+           Disease_type == "Cancer" ~ "Yes")) |> 
   mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
          Assay = factor(Assay, levels = proteins)) |> 
   filter(Cohort == "MEDECA") |> 
-  ggplot(aes(Disease_type, NPX, fill = Disease_type, color = Disease_type)) +
+  ggplot(aes(Cancer, NPX, fill = Disease_type, color = Disease_type)) +
   geom_quasirandom(size = 0.5, show.legend = F) +
   geom_boxplot(alpha = 0.5, outlier.color = NA, show.legend = F) +
   stat_summary(fun = "median",
@@ -476,22 +550,29 @@ data |>
                colour = "grey20",
                show.legend = F) +
   facet_grid(Assay~Cohort, scales = "free") +
-  scale_color_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
+   scale_color_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
   scale_fill_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
-  theme_hpa(axis_x = F)
+  theme_hpa()
 
-#ggsave(savepath("proteins_medeca.pdf"), height = 10, width = 3)
+ggsave(savepath("proteins_medeca.pdf"), height = 8, width = 3)
 
 data |> 
   filter(Assay %in% proteins,
          Sample %in% metadata$Sample) |> 
   left_join(metadata |> 
               select(Sample, Disease_type, Cohort), by = "Sample") |> 
-  mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) |> 
+  mutate(Disease_type = factor(Disease_type, levels = c("Other", "No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer")),
+         Cancer = case_when(
+           Disease_type == "Other" ~ "No_0", 
+           Disease_type == "No diagnosis" ~ "No_1", 
+           Disease_type == "Infectious" ~ "No_2", 
+           Disease_type == "Autoimmune" ~ "No_3", 
+           Disease_type == "Inflammatory" ~ "No_4",
+           Disease_type == "Cancer" ~ "Yes")) |> 
   mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
          Assay = factor(Assay, levels = proteins)) |> 
   filter(Cohort == "ALLVOS") |> 
-  ggplot(aes(Disease_type, NPX, fill = Disease_type, color = Disease_type)) +
+  ggplot(aes(Cancer, NPX, fill = Disease_type, color = Disease_type)) +
   geom_quasirandom(size = 0.5, show.legend = F) +
   geom_boxplot(alpha = 0.5, outlier.color = NA, show.legend = F) +
   stat_summary(fun = "median",
@@ -500,11 +581,11 @@ data |>
                colour = "grey20",
                show.legend = F) +
   facet_grid(Assay~Cohort, scales = "free") +
-  scale_color_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
+   scale_color_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
   scale_fill_manual(values = c(pal_controls, "Cancer" = "#E16C54")) +
-  theme_hpa(axis_x = F)
+  theme_hpa()
 
-#ggsave(savepath("proteins_allvos.pdf"), height = 10, width = 3)
+ggsave(savepath("proteins_allvos.pdf"), height = 8, width = 3)
 ```
 
 

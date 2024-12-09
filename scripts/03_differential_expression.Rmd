@@ -324,10 +324,6 @@ ggsave(savepath("pca_allvos_medeca.pdf"), width = 6, height = 10)
 ## Explore PC1 - MEDECA & ALLVOS
 
 ```{r}
-
-
-
-#pc1_medeca_plot <- 
 medeca_pca$loadings |> 
   filter(PC == "PC1") |> 
   mutate(dataset = "MEDECA") |> 
@@ -350,7 +346,6 @@ ggsave(savepath("loadings_pc1.pdf"), h = 10, w = 4)
 
 
 # Compare directly
-
 medeca_pca$loadings |> 
   filter(PC == "PC1") |> 
   select(Assay, MEDECA_value = Value) |> 
@@ -392,15 +387,21 @@ proteins <- c("DPY30", "MAD1L1", "METAP1D", "FKBP4", "GRPEL1", "ZBTB17")
 
 variable <- "Category"
 palette <- pal_category
+
 data |> 
     filter(Assay %in% proteins,
-           Sample %in% metadata$Sample) |>
+           Sample %in% metadata$Sample) |> 
     left_join(metadata |> 
                 select(Sample, !!sym(variable), Cohort), by = "Sample") |> 
     mutate(Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS")),
            Category = factor(Category, levels = c("No diagnosis", "Other diseases", "Cancer")),
-           Assay = factor(Assay, levels = proteins)) |> 
-    ggplot(aes(!!sym(variable), NPX, fill = !!sym(variable), color = !!sym(variable))) +
+           Assay = factor(Assay, levels = proteins),
+           Cancer = case_when(
+               Category == "No diagnosis" ~ "No_0",
+               Category == "Other diseases" ~ "No_1",
+               Category == "Cancer" ~ "Yes"
+           )) |> 
+    ggplot(aes(Cancer, NPX, fill = Category, color = Category)) +
     geom_quasirandom(size = 0.5) +
     geom_boxplot(alpha = 0.5, outlier.color = NA) +
     stat_summary(fun = "median",
@@ -411,8 +412,9 @@ data |>
     facet_grid(Assay~Cohort, scales = "free") +
     scale_color_manual(values = palette) +
     scale_fill_manual(values = palette) +
-    theme_hpa(angled = T, axis_x = F) +
-  theme(legend.position = "top")
+    theme_hpa() +
+    theme(legend.position = "top")
+
 
 ggsave(savepath("proteins_continuous.pdf"), h = 11, w = 5)
 ```

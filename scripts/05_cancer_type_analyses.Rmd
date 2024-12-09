@@ -87,13 +87,14 @@ de_cancers <-
 labels <- 
   de_cancers |>
   group_by(Cancer) |> 
-  top_n(n = 10, wt = -log10(adj.P.Val)) 
+  top_n(n = 7, wt = -log10(adj.P.Val)) 
 
-de_cancers |> 
+p_volcanos <- 
+  de_cancers |> 
   mutate(Cancer = factor(Cancer, levels = cancer_order)) |> 
   ggplot(aes(x = logFC, y = -log10(adj.P.Val), color = sig, label = Assay)) +
-  geom_point(size = 1, alpha = 0.4) + #, show.legend = F 
-  geom_text_repel(data = labels, size = 2, show.legend = F) +
+  geom_point(size = 1, alpha = 0.4, show.legend = F) + 
+  geom_text(data = labels, size = 3, show.legend = F) +
   geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "darkgrey") +
   geom_vline(xintercept = -0.5, linetype = 'dashed', color = "darkgrey") +
   geom_vline(xintercept = 0.5, linetype = 'dashed', color = "darkgrey") +
@@ -102,8 +103,6 @@ de_cancers |>
   theme_hpa() +
   theme(axis.text = element_text(size = 8),
         legend.position = "right")   
-
-#ggsave(savepath("cancer_de_volcanos.pdf"), h = 3, w = 12)
 ```
 
 
@@ -118,7 +117,8 @@ top_marker_cancer <-
   top_n(2, -adj.P.Val) |> 
   arrange(Cancer)
 
-data |> 
+p_markers <- 
+  data |> 
   filter(Sample %in% selected_samples_de$Sample,
          Assay %in% top_marker_cancer$Assay) |> 
   left_join(selected_samples_de, by = "Sample") |> 
@@ -132,8 +132,6 @@ data |>
   scale_fill_manual(values = pal_cancers) +
   theme_hpa(angled = T,
             axis_x = F)
-
-#ggsave(savepath("cancer_de_top_markers.pdf"), h = 3, w = 12)
 ```
 
 # Direct comparison HPA
@@ -161,19 +159,18 @@ labels <-
          sum_rank = rank_alvez + rank_medeca) |> 
   top_n(n = 5, wt = sum_rank)
 
-combined_dataset |> 
-  #mutate(Cancer = factor(Cancer, levels = "Lung", "Lymfom", "Myelom")) |>
+p_comparison <- 
+  combined_dataset |> 
   ggplot(aes(-log10(adj_pval_Alvez), -log10(adj_pval), color = p_value)) +
-  geom_text_repel(data = labels, aes(label = Assay), show.legend = F) +
-  #geom_text(data = labels, aes(label = Assay), show.legend = F) +
+  geom_text_repel(data = labels, aes(label = Assay), show.legend = F, size = 3) +
   geom_point( show.legend = F) +
   geom_hline(yintercept = -log10(0.05), linetype = 'dashed', color = "darkgrey") +
   geom_vline(xintercept = -log10(0.05), slope = 1, linetype = 'dashed', color = "darkgrey") +
   scale_color_manual(values = pal_pvalue) +
   facet_wrap(~Cancer, scales = "free", nrow = 1) +
+  xlab("-log10(adj.P.Val)_HPA") +
+  ylab("-log10(adj.P.Val)") +
   theme_hpa()
-
-#ggsave(savepath("de_comparison.pdf"), h = 3.5, w = 9)
 
 # Visualize fold change comparison      
 combined_dataset_fc <- 
@@ -193,13 +190,21 @@ labels <-
 combined_dataset_fc |>
   ggplot(aes(logFC_Alvez, logFC, color = FC)) +
   geom_text_repel(data = labels, aes(label = Assay), show.legend = F) +
-  #geom_text(data = labels, aes(label = Assay), show.legend = F) +
   geom_point( show.legend = F) +
   geom_hline(yintercept = 0,  linetype = 'dashed', color = "darkgrey") +
   geom_vline(xintercept = 0,  linetype = 'dashed', color = "darkgrey") +
   scale_color_manual(values = pal_de) +
   facet_wrap(~Cancer, scales = "free", nrow = 1) +
   theme_hpa()
-
-#ggsave(savepath("de_comparison_FC.pdf"), h = 5, w = 15)
 ```
+
+
+# Combine plots
+
+```{r}
+p_volcanos / p_markers / p_comparison
+
+ggsave(savepath("Fig6.pdf"), h = 10, w = 12)
+
+```
+

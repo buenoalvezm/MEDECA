@@ -413,7 +413,7 @@ plot_roc_tiles <- function(predictions,
   controls <- 
     metadata |> 
     distinct(Disease_type) |> 
-    filter(!Disease_type %in% c("Cancer")) |> 
+    filter(!Disease_type %in% c("Cancer", "Other")) |> 
     pull()
   
   auc_controls <- 
@@ -444,10 +444,10 @@ plot_roc_tiles <- function(predictions,
     Control = auc_controls$Control,
     AUC = round(auc_controls$.estimate, 2)
   ) |> 
-    mutate(Control = factor(Control, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory"))) |> 
+    mutate(Control = factor(Control, levels = rev(c("No diagnosis", "Infectious", "Autoimmune", "Inflammatory")))) |> 
     arrange(Control) |> 
-    mutate(specificity = rep(0.2, 5),
-           sensitivity = c(0.1, 0.2, 0.3, 0.4, 0.5))
+    mutate(specificity = rep(0.2, 4),
+           sensitivity = c(0.1, 0.2, 0.3, 0.4))
   # Modify the ROC plot to include facets for each disease group
   roc_controls |> 
     ggplot(aes(
@@ -478,7 +478,7 @@ plot_roc_tiles <- function(predictions,
     geom_text(
       label = "AUC",
       x = 0.8,
-      y = 0.6,
+      y = 0.5,
       size = 3,
       inherit.aes = FALSE
     ) +

@@ -30,7 +30,8 @@ metadata <-
          Cohort = ifelse(ID > 1000, "ALLVOS", "MEDECA")) |> 
   select(-ID)
 
-metadata_medeca <- import_df("data/2024-04-04 pat 1-728.xlsx")
+metadata_medeca <- import_df("data/Pat 1-728 Jan 7 2025.xlsx")
+
 metadata_allvos <- import_df("data/Cohortdata proteomics 240429 till fredrika.xlsx")
 metadata_allvos_controls <- import_df("data/ALLVOS/Diagnosis Proteomics 238.xlsx")
 ```
@@ -61,9 +62,9 @@ meta_medeca <-
   mutate(Sex = ifelse(`Sex 1 male` == 1, "Male", "Female")) |> 
   select(-`Ongoing cancer known prior to DC`, -`Loss to follow up`, - `Sex 1 male`) |> 
   relocate(Sex, .after = "Age") |> 
-  mutate(`No disease` = ifelse(Sample == 494, 0, `No disease`), #Correction
-         `Other disease than cancer` = ifelse(Sample == "138", 1, `Other disease than cancer`), # Correction
-         `No disease` = ifelse(Sample == "138", 0, `No disease`), # Correction
+  mutate(#`No disease` = ifelse(Sample == 494, 0, `No disease`), #Correction
+         #`Other disease than cancer` = ifelse(Sample == "138", 1, `Other disease than cancer`), # Correction
+         #`No disease` = ifelse(Sample == "138", 0, `No disease`), # Correction
           Category = case_when(`Other disease than cancer` == 0 & `No disease` == 0 ~ "Cancer",
                               `Other disease than cancer` == 0 & `No disease` == 1 ~ "No diagnosis",
                               `Other disease than cancer` == 1 & `No disease` == 0 ~ "Other diseases",
@@ -84,7 +85,22 @@ meta_medeca <-
                                levels = c("Cancer", "No diagnosis", "Autoimmune", "Infectious", "Inflammatory", "Other")),
          Category = factor(Category, 
                            levels = c("Cancer", "No diagnosis", "Other diseases")))
+
+
+meta_medeca |> 
+  filter(Sample %in% data$Sample) |> 
+  count(Category, Disease_type)  |> 
+  ggplot(aes(Disease_type, n, fill = Category)) +
+  geom_col() +
+  geom_text(aes(label = n), vjust = -0.5) +
+  scale_fill_manual(values = pal_category) +
+  theme_hpa(angled = T) +
+  ggtitle("Sample size in processed metadata")
+
+
+#ggsave(savepath("metadata_medeca_category.png"), width = 6, height = 6)
 ```
+
 
 ## ALLVOS 
 
@@ -214,7 +230,7 @@ mutate(Cancer = factor(Cancer, levels = c("Cancer", "No cancer")),
         axis.ticks.y = element_blank(),
         axis.line.y = element_blank())
 
-ggsave(savepath("n_medeca_allvos.pdf"), h = 3, w = 8)
+#ggsave(savepath("n_medeca_allvos.pdf"), h = 3, w = 8)
 ```
 
 

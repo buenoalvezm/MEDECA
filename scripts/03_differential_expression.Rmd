@@ -94,7 +94,7 @@ allvos_de |>
   geom_hline(yintercept = 0, color = "grey") +
   theme_hpa()
 
-ggsave(savepath("proteins_MEDECA_ALLVOS.pdf"), h = 8, w = 8)
+#ggsave(savepath("proteins_MEDECA_ALLVOS.pdf"), h = 8, w = 8)
 ```
 
 
@@ -374,10 +374,8 @@ y <- list("MEDECA" = pc1_medeca,
           "ALLVOS" =pc1_allvos)
 
 plot(euler(y, shape = "ellipse"), quantities = TRUE,  alpha = 0.5) |> as.ggplot() +
-  ggtitle("Severe ROP") +
   theme(plot.title = element_text(hjust = 0.5,
                                   face = "bold"))
-
 ```
 
 ## Boxplots

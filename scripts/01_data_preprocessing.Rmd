@@ -141,11 +141,11 @@ replicate_cor_plots <-
   })
 
 replicate_cor_plots[[1]]
-ggsave(savepath("tnf_cor.png"), h = 8, w = 8)
+ggsave(savepath("tnf_cor.pdf"), h = 7, w = 7)
 replicate_cor_plots[[2]]
-ggsave(savepath("il6_cor.png"), h = 8, w = 8)
+ggsave(savepath("il6_cor.pdf"), h = 7, w = 7)
 replicate_cor_plots[[3]]
-ggsave(savepath("cxcl8_cor.png"), h = 8, w = 8)
+ggsave(savepath("cxcl8_cor.pdf"), h = 7, w = 7)
 
 data_qc |> 
   group_by(SampleID) |> 

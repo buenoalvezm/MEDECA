@@ -87,7 +87,7 @@ y <- list("AUC > 0.7" = selected_proteins_auc$final_list$Assay,
           "adj pval < 1E-6" = selected_protein_pval$final_list$Assay)
 
 plot(euler(y, shape = "circle"), quantities = TRUE, fills = list(fill = c("#449395", "#EA7C68", "#FDA638")),  alpha = 0.4) |> as.ggplot() 
-#ggsave(savepath("selected_proteins.png"), width = 3, height = 3)
+ggsave(savepath("selected_proteins.pdf"), width = 3, height = 3)
 
 selected_protein_list <- union(union(y$`AUC > 0.7`, y$`NPX diff > 1`), y$`adj pval < 1E-6`)
 ```
@@ -132,7 +132,7 @@ cor_selected_proteins |>
   pheatmap() |> 
   as.ggplot()
 
-#ggsave(savepath("corr_selected_proteins.png"), h = 6, w = 6)
+ggsave(savepath("corr_selected_proteins.png"), h = 6, w = 6)
 ```
 
 ## Run lasso
@@ -160,26 +160,33 @@ ml_medeca_filter$roc_curve |> autoplot() + theme_hpa()
 ## Protein importance
 
 ```{r}
-ml_medeca_filter$important_proteins |> 
-  filter(Importance > 0)
+importance <- 
+  ml_medeca_filter$important_proteins |> 
+  select(-Sign) |> 
+  bind_rows(tibble("Variable" = "Lower_limit",
+                   "Importance" = 0)) |> 
+  mutate(Importance = scales::rescale(Importance, c(0,1))) |> 
+  filter(Importance > 0,
+         Variable != "Lower_limit") 
 
-ml_medeca_filter$important_proteins |> 
-   ggplot(aes(fct_reorder(Variable, Importance), Importance, color = Sign)) +
+importance |> 
+  ggplot(aes(fct_reorder(Variable, Importance), Importance)) +
   geom_segment(aes(x = fct_reorder(Variable, Importance), 
                    xend = fct_reorder(Variable, Importance), 
                    y = 0, 
-                   yend = Importance)) +
-  geom_point() + 
+                   yend = Importance),
+               color = "#C4C4C4",) +
+  geom_point(color = "#C4C4C4") + 
   coord_flip() +
   theme_hpa(angled = T) +
   xlab("") +
   ylab("Model estimate") +
-  scale_color_manual(values = c(pal_de[[3]], pal_de[[2]])) +
+  #scale_color_manual(values = c(pal_de[[3]], pal_de[[2]])) +
   theme(axis.text.y = element_text(size = 9),
         axis.ticks.y = element_blank(),
         legend.position = "top")
 
-#ggsave(savepath("top_ml_markers.pdf"), h = 7, w = 2.5)
+ggsave(savepath("top_ml_markers.pdf"), h = 7, w = 2.5)
 #ggsave(savepath("top_ml_markers.png"), h = 7, w = 2.5)
 ```
 
@@ -380,7 +387,7 @@ ml_medeca_filter$roc_curve |>
   coord_fixed() +
   theme(legend.position = "top")
 
-#ggsave(savepath("ROC_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
+ggsave(savepath("ROC_MEDECA_ALLVOS.pdf"), h = 4, w = 5)  
 ```
 
 ## Probabilities
@@ -411,7 +418,7 @@ ml_medeca_filter$predictions |>
   theme(legend.position = "top") +
   xlab("Probability cancer") 
 
-#ggsave(savepath("prob_meodels.pdf"), h = 5, w = 7)
+ggsave(savepath("prob_meodels.pdf"), h = 5, w = 7)
 
 ml_medeca_filter$predictions |> 
   ggplot(aes(.pred_Case, fill = Class,  color = Class)) +
@@ -484,6 +491,62 @@ ggsave(savepath("prob_models.pdf"), h = 4, w = 6)
 
 # Stratification control groups
 
+## Number of samples plot
+
+```{r}
+plot_medeca_train <- 
+  medeca_train |> 
+  select(Sample) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type), 
+            by = "Sample") |>
+  count(Disease_type) |>
+  filter(!Disease_type %in% c("Cancer")) |> 
+  mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) |> 
+  ggplot(aes(Disease_type, n, fill = Disease_type)) +
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), vjust = -0.5) +
+  scale_fill_manual(values = pal_controls) +
+  theme_hpa(angled = T, axis_x = F) +
+  ggtitle("Training set")
+
+plot_medeca_test <- 
+  medeca_test |> 
+  select(Sample) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Disease_type), 
+            by = "Sample") |>
+  count(Disease_type) |>
+  filter(!Disease_type %in% c("Cancer")) |> 
+  mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) |> 
+  ggplot(aes(Disease_type, n, fill = Disease_type)) +
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), vjust = -0.5) +
+  scale_fill_manual(values = pal_controls) +
+  theme_hpa(angled = T, axis_x = F) +
+  ggtitle("Test set")
+  
+  
+empty_plot <- ggplot() + theme_void()
+
+plot_allvos <- 
+  meta_allvos|> 
+  count(Disease_type) |> 
+  filter(!Disease_type %in% c("Cancer")) |> 
+  mutate(Disease_type = factor(Disease_type, levels = c("Other","No diagnosis", "Infectious", "Autoimmune", "Inflammatory", "Cancer"))) |> 
+  ggplot(aes(Disease_type, n, fill = Disease_type)) +
+  geom_bar(stat = "identity", show.legend = F) +
+  geom_text(aes(label = n), vjust = -0.5) +
+  scale_fill_manual(values = pal_controls) +
+  theme_hpa(angled = T, axis_x = F) 
+
+plot_medeca_train / plot_medeca_test
+ggsave(savepath("control_groups_medeca.pdf"), h = 5.5, w = 2.5)
+empty_plot / plot_allvos
+ggsave(savepath("control_groups_allvos.pdf"), h = 5, w = 3)
+
+```
+
 ## ROC 
 
 ```{r}
@@ -491,7 +554,7 @@ plot_roc_tiles(predictions = ml_medeca_filter$predictions,
                test_data = medeca_test,
                metadata = meta_medeca) 
   
-#ggsave(savepath("roc_curve_controls_medeca.pdf"), height = 5, width = 5)
+ggsave(savepath("roc_curve_controls_medeca.pdf"), height = 5, width = 5)
 
 plot_roc_tiles(predictions = allvos_predictions |> 
                  rename(Class = True_Class) |> 
@@ -499,7 +562,7 @@ plot_roc_tiles(predictions = allvos_predictions |>
                test_data = ml_data_allvos,
                metadata = meta_allvos |> mutate(Sample = as.character(Sample))) 
 
-#ggsave(savepath("roc_curve_controls_allvos.pdf"), height = 5, width = 5)
+ggsave(savepath("roc_curve_controls_allvos.pdf"), height = 5, width = 5)
 ```
 
 ## Densities
@@ -509,14 +572,14 @@ plot_densities(predictions =  ml_medeca_filter$predictions,
                metadata = meta_medeca, 
                test_data = medeca_test_filtered)
 
-#ggsave(savepath("roc_controls_medeca.pdf"), height = 10, width = 3)
+ggsave(savepath("roc_controls_medeca.pdf"), height = 10, width = 3)
 
 
 plot_densities(predictions =  allvos_predictions,
                metadata = meta_allvos,
                test_data = ml_data_allvos |> mutate(Sample = as.numeric(Sample))) 
 
-#ggsave(savepath("roc_controls_allvos.pdf"), height = 10, width = 3)
+ggsave(savepath("roc_controls_allvos.pdf"), height = 10, width = 3)
 ```
 
 

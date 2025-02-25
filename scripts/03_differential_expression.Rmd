@@ -198,14 +198,14 @@ characterization_prots <-
          Biological.process,
          Molecular.function,
          Disease.involvement) |> 
-  mutate(Pan_cancer_maker = ifelse(Gene %in% pancancer_markers$Protein, "Yes", "No"),
+  mutate(Pan_cancer_marker = ifelse(Gene %in% pancancer_markers$Protein, "Yes", "No"),
          Secreted = ifelse(Secretome.location %in% secreted, "Yes", "No"),
          Tissue_enriched = ifelse(RNA.tissue.specificity == "Tissue enriched", "Yes", "No"),
          Cancer_related = case_when(grepl("Cancer",Disease.involvement) ~ "Yes",
                                     grepl("Proto-oncogene",Disease.involvement) ~ "Yes",
                                     T ~ "No"),
          Gene = factor(Gene, levels = rev(replicated_proteins$Assay))) |> 
-  select(Gene, Secreted, Tissue_enriched, Cancer_related, Pan_cancer_maker) |> 
+  select(Gene, Secreted, Tissue_enriched, Cancer_related, Pan_cancer_marker) |> 
   pivot_longer(cols = -Gene, names_to = "Type", values_to = "Value") |> 
   ggplot(aes(Type, Gene, fill = Value)) +
   geom_tile(color = "white") +

@@ -586,7 +586,8 @@ ggsave(savepath("roc_controls_allvos.pdf"), height = 10, width = 3)
 ## Plot proteins across control groups
 
 ```{r}
-proteins <- c("AGR2", "RRM2", "KRT19", "CEACAM5", "PARP1")
+proteins <- c("AGR2", "KRT19", "CEACAM5", "RRM2", "PARP1")
+
 
 data |> 
   filter(Assay %in% proteins,

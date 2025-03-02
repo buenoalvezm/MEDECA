@@ -33,7 +33,11 @@ metadata <-
 metadata_medeca <- import_df("data/Pat 1-728 Jan 7 2025.xlsx")
 
 metadata_allvos <- import_df("data/Cohortdata proteomics 240429 till fredrika.xlsx")
-metadata_allvos_controls <- import_df("data/ALLVOS/Diagnosis Proteomics 238.xlsx")
+metadata_allvos_controls <- import_df("data/Proteomics Diagnoses Feb 25 to Stockholm.xlsx")
+#a <- import_df("data/ALLVOS/Diagnosis Proteomics 238.xlsx")
+# 
+# metadata_allvos_controls |> 
+#   count(Classification) 
 ```
 
 # Metadata pre-processing
@@ -105,71 +109,35 @@ meta_medeca |>
 ## ALLVOS 
 
 ```{r}
-# duplicated_allvos <- 
-#   metadata_allvos_controls |> 
-#   count(`Sample ID`) |> 
-#   arrange(-n) |> 
-#   filter(n > 1) |> 
-#   pull(`Sample ID`)
-
-#colnames(metadata_allvos)
-
-keep_columns_allvos <- c("Carcinoma", "Germinal cell tumors", "SCC", "Urothelial", "Neuroendocrine tumors",
-                  "Adenocarcinoma", "HCC", "Kidney", "Adrenal", "Prostate", "Lung", "Breast", "Thyroid",
-                  "Gynecologic","Ovarian", "Colorectal", "Urine bladder", "Merkel cell carcinoma",
-                  "Small cell parotid", "Pancreas,/gall bladder/bile duct", "Ventricle", 
-                  "Other adenocarcinoma", "Sarcoma", "Lymphoma",
-                  "Melanoma", "Myeloma", "CLL", "MDS MPN", "AML")
-
 meta_allvos <- 
   metadata_allvos |>
-  mutate(StudyID = as.character(StudyID),
+  mutate(Sample = as.character(StudyID),
          `Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
   filter(`Ongoing cancer` != 1,
          `Lost to follow up` != 1,
          StudyID %in% data$Sample) |> 
-  select(Sample = StudyID, Age, Sex, Cancer, keep_columns_allvos) |> 
+  select(Sample, Age, Sex) |> 
   left_join(metadata_allvos_controls |>
               mutate(`Sample ID` = as.character(`Sample ID`)) |> 
-              select(Sample = `Sample ID`, Disease_type = Category), by = "Sample") |> 
-  mutate(Cancer = ifelse(Cancer == 1, "Yes", "No"),
+              select(Sample = `Sample ID`, Disease_type = Classification), by = "Sample") |> 
+  mutate(Cancer = ifelse(Disease_type == "Cancer", "Yes", "No"),
          Category = ifelse(Disease_type %in% c("Autoimmune", "Infectious", "Inflammatory", "Other"), "Other diseases", Disease_type),
          Disease_type = factor(Disease_type, 
                                levels = c("Cancer", "No diagnosis", "Autoimmune", "Infectious", "Inflammatory", "Other")),
          Category = factor(Category, 
                            levels = c("Cancer", "No diagnosis", "Other diseases")))
 
-# 5 ALLVOS patients no cancer but no diagnosis
-metadata_allvos |> 
-    mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
-  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`,
-         `Ongoing cancer` != 1,
-         `Lost to follow up` != 1,
-         StudyID %in% as.numeric(data$Sample))
 
-metadata_allvos_controls |> 
-  filter(!`Sample ID` %in% metadata_allvos$StudyID)
-
-# 2 ongoing cancer and 1 lost to follow up
-metadata_allvos |> 
-  filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
-
-# #Check patient ID missmatch
-# metadata_allvos |> 
-#   mutate(`Lost to follow up` = ifelse(is.na(`Lost to follow up`), 0, `Lost to follow up`)) |> 
-#   filter(`Lost to follow up` == 0,
-#          `Ongoing cancer` != 1) |> 
-# #  distinct(StudyID) |> 
-#   filter(StudyID %in% as.numeric(data$Sample)) |> 
-#   filter(!StudyID %in% metadata_allvos_controls$`Sample ID`)
-# 
-# metadata_allvos_controls |>
-#   filter(`Sample ID` %in% duplicated_allvos)
 
 meta_allvos |> 
-  #filter(is.na(Disease_type))
-  distinct(Category)
-
+  filter(Sample %in% data$Sample) |> 
+  count(Category, Disease_type)  |> 
+  ggplot(aes(Disease_type, n, fill = Category)) +
+  geom_col() +
+  geom_text(aes(label = n), vjust = -0.5) +
+  scale_fill_manual(values = pal_category) +
+  theme_hpa(angled = T) +
+  ggtitle("Sample size in processed metadata")
 ```
 
 ## Combine

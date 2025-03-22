@@ -14,6 +14,10 @@ Clone the repository:
    git clone https://github.com/buenoalvezm/MEDECA.git
    ```
 
+Required hardware includes a computer with R, RStudio, and the necessary packages installed. Note: At least 4GB of RAM is recommended, especially for larger datasets.
+
+Typical installation time on a standard desktop computer is less than 5 minutes.
+
 # Usage
 Run the scripts in the scripts folder for data processing and classification model generation for cancer detection.
 - **01_data_preprocessing.Rmd**: quality control of Olink dataset
@@ -21,6 +25,10 @@ Run the scripts in the scripts folder for data processing and classification mod
 - **03_differential_expression.Rmd**: perform differential expression analyses in the discovery and replication cohorts
 - **04_cancer_classification.Rmd**: classification models to predict presence of cancer
 - **05_cancer_type_analyses.Rmd**: investigate specific cancer types 
+
+The expected runtime for the demo on a regular desktop computer is approximately 1 hour.
+
+Expected outputs include plots and files summarizing the differential and machine learning results, which will be stored in the results/ and data/processed/ directories.
 
 # License
 This project is licensed under the Apache License 2.0. See the LICENSE file for more information.

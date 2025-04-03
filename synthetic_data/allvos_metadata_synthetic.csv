@@ -1,0 +1,201 @@
+Sample,Cohort,Sex,Age,Disease_type,Category,Cancer
+Synth_401,ALLVOS,Male,59.00072437199296,No diagnosis,No diagnosis,No
+Synth_402,ALLVOS,Male,64.07972395486847,Autoimmune,Other diseases,No
+Synth_403,ALLVOS,Male,91.58744707112164,Other,Other diseases,No
+Synth_404,ALLVOS,Male,68.70337513494101,Infectious,Other diseases,No
+Synth_405,ALLVOS,Male,69.6072259616243,Inflammatory,Other diseases,No
+Synth_406,ALLVOS,Male,93.99174591021826,No diagnosis,No diagnosis,No
+Synth_407,ALLVOS,Female,74.70668179859658,Other,Other diseases,No
+Synth_408,ALLVOS,Male,48.16630149908197,Infectious,Other diseases,No
+Synth_409,ALLVOS,Female,57.05742024063038,Other,Other diseases,No
+Synth_410,ALLVOS,Male,60.7662159508264,Other,Other diseases,No
+Synth_411,ALLVOS,Female,86.44189023886611,Inflammatory,Other diseases,No
+Synth_412,ALLVOS,Female,73.15202904188936,Other,Other diseases,No
+Synth_413,ALLVOS,Female,73.78183501690422,Cancer,Cancer,Yes
+Synth_414,ALLVOS,Female,69.32113630955018,Cancer,Cancer,Yes
+Synth_415,ALLVOS,Female,59.071989327566605,No diagnosis,No diagnosis,No
+Synth_416,ALLVOS,Male,95.09655596035992,Infectious,Other diseases,No
+Synth_417,ALLVOS,Female,75.27462064199075,No diagnosis,No diagnosis,No
+Synth_418,ALLVOS,Male,37.37846584495945,No diagnosis,No diagnosis,No
+Synth_419,ALLVOS,Male,78.40392650733607,No diagnosis,No diagnosis,No
+Synth_420,ALLVOS,Male,60.3490461923909,Inflammatory,Other diseases,No
+Synth_421,ALLVOS,Male,51.19922585590097,Infectious,Other diseases,No
+Synth_422,ALLVOS,Male,64.26736312608301,Cancer,Cancer,Yes
+Synth_423,ALLVOS,Male,51.84228119170943,Cancer,Cancer,Yes
+Synth_424,ALLVOS,Male,56.410995497719426,Inflammatory,Other diseases,No
+Synth_425,ALLVOS,Male,58.00792862482147,Cancer,Cancer,Yes
+Synth_426,ALLVOS,Male,41.6828589094397,Cancer,Cancer,Yes
+Synth_427,ALLVOS,Female,80.50183018377815,Other,Other diseases,No
+Synth_428,ALLVOS,Female,69.97758724262013,Cancer,Cancer,Yes
+Synth_429,ALLVOS,Male,50.118018276009465,No diagnosis,No diagnosis,No
+Synth_430,ALLVOS,Male,86.89909691496996,No diagnosis,No diagnosis,No
+Synth_431,ALLVOS,Male,74.17691312982639,Inflammatory,Other diseases,No
+Synth_432,ALLVOS,Female,63.081848069371155,Infectious,Other diseases,No
+Synth_433,ALLVOS,Female,81.38352692749282,Cancer,Cancer,Yes
+Synth_434,ALLVOS,Male,81.12223802735076,Autoimmune,Other diseases,No
+Synth_435,ALLVOS,Female,80.25263085635407,No diagnosis,No diagnosis,No
+Synth_436,ALLVOS,Male,78.20839781066789,Other,Other diseases,No
+Synth_437,ALLVOS,Female,76.13676641516467,Autoimmune,Other diseases,No
+Synth_438,ALLVOS,Male,66.66714929342486,No diagnosis,No diagnosis,No
+Synth_439,ALLVOS,Female,62.91437422402733,No diagnosis,No diagnosis,No
+Synth_440,ALLVOS,Male,61.76865843413079,No diagnosis,No diagnosis,No
+Synth_441,ALLVOS,Male,56.93664721468343,No diagnosis,No diagnosis,No
+Synth_442,ALLVOS,Male,64.42201955149562,Other,Other diseases,No
+Synth_443,ALLVOS,Female,48.16114840066946,Other,Other diseases,No
+Synth_444,ALLVOS,Female,100.9712341117342,Other,Other diseases,No
+Synth_445,ALLVOS,Male,86.19401585226173,No diagnosis,No diagnosis,No
+Synth_446,ALLVOS,Female,50.349109491905196,No diagnosis,No diagnosis,No
+Synth_447,ALLVOS,Female,61.424000577111634,No diagnosis,No diagnosis,No
+Synth_448,ALLVOS,Female,60.443400385932,Other,Other diseases,No
+Synth_449,ALLVOS,Female,79.61270158117047,No diagnosis,No diagnosis,No
+Synth_450,ALLVOS,Female,66.33719921859559,Infectious,Other diseases,No
+Synth_451,ALLVOS,Female,71.51444905832831,No diagnosis,No diagnosis,No
+Synth_452,ALLVOS,Male,67.18020269702104,Other,Other diseases,No
+Synth_453,ALLVOS,Female,66.95994692315494,Autoimmune,Other diseases,No
+Synth_454,ALLVOS,Female,88.66418387061101,No diagnosis,No diagnosis,No
+Synth_455,ALLVOS,Female,64.14748282849557,Other,Other diseases,No
+Synth_456,ALLVOS,Male,90.93795719218593,No diagnosis,No diagnosis,No
+Synth_457,ALLVOS,Female,43.803972091705646,No diagnosis,No diagnosis,No
+Synth_458,ALLVOS,Female,76.60878073296648,Autoimmune,Other diseases,No
+Synth_459,ALLVOS,Male,69.52367508633603,Infectious,Other diseases,No
+Synth_460,ALLVOS,Female,70.93970322558584,Other,Other diseases,No
+Synth_461,ALLVOS,Female,73.45688843903794,Cancer,Cancer,Yes
+Synth_462,ALLVOS,Male,59.8949314994587,No diagnosis,No diagnosis,No
+Synth_463,ALLVOS,Female,62.49543176795838,Other,Other diseases,No
+Synth_464,ALLVOS,Male,51.95651803574017,No diagnosis,No diagnosis,No
+Synth_465,ALLVOS,Male,51.138217235428655,Autoimmune,Other diseases,No
+Synth_466,ALLVOS,Female,72.28653092046166,Other,Other diseases,No
+Synth_467,ALLVOS,Female,74.5112948795994,Autoimmune,Other diseases,No
+Synth_468,ALLVOS,Male,68.43421333891797,Autoimmune,Other diseases,No
+Synth_469,ALLVOS,Female,81.80088688740092,Autoimmune,Other diseases,No
+Synth_470,ALLVOS,Male,99.1433487083533,Other,Other diseases,No
+Synth_471,ALLVOS,Male,60.06857316231165,Autoimmune,Other diseases,No
+Synth_472,ALLVOS,Male,32.11104306122304,Cancer,Cancer,Yes
+Synth_473,ALLVOS,Female,83.08442254296412,Cancer,Cancer,Yes
+Synth_474,ALLVOS,Female,56.713776091737344,No diagnosis,No diagnosis,No
+Synth_475,ALLVOS,Male,57.03964803190695,Other,Other diseases,No
+Synth_476,ALLVOS,Male,83.38939249365006,No diagnosis,No diagnosis,No
+Synth_477,ALLVOS,Male,63.24020788425504,Other,Other diseases,No
+Synth_478,ALLVOS,Male,48.848172489606526,Cancer,Cancer,Yes
+Synth_479,ALLVOS,Female,70.40707282547255,Other,Other diseases,No
+Synth_480,ALLVOS,Male,65.48343206300433,No diagnosis,No diagnosis,No
+Synth_481,ALLVOS,Female,67.70780254146489,No diagnosis,No diagnosis,No
+Synth_482,ALLVOS,Female,73.54362892310382,Cancer,Cancer,Yes
+Synth_483,ALLVOS,Female,61.91952185104489,Other,Other diseases,No
+Synth_484,ALLVOS,Female,77.52775416379215,Autoimmune,Other diseases,No
+Synth_485,ALLVOS,Male,64.22874149103217,No diagnosis,No diagnosis,No
+Synth_486,ALLVOS,Female,72.72098267315641,Other,Other diseases,No
+Synth_487,ALLVOS,Female,84.48527608737227,Inflammatory,Other diseases,No
+Synth_488,ALLVOS,Male,74.31095870798177,Infectious,Other diseases,No
+Synth_489,ALLVOS,Female,62.60731182214002,Infectious,Other diseases,No
+Synth_490,ALLVOS,Female,85.28439808972453,No diagnosis,No diagnosis,No
+Synth_491,ALLVOS,Male,82.89628986683827,No diagnosis,No diagnosis,No
+Synth_492,ALLVOS,Female,76.05187462248277,Cancer,Cancer,Yes
+Synth_493,ALLVOS,Male,71.29014794650472,No diagnosis,No diagnosis,No
+Synth_494,ALLVOS,Female,57.96384567343298,Cancer,Cancer,Yes
+Synth_495,ALLVOS,Female,88.54193913431652,No diagnosis,No diagnosis,No
+Synth_496,ALLVOS,Female,58.38896613670695,No diagnosis,No diagnosis,No
+Synth_497,ALLVOS,Female,101.25381793460397,Autoimmune,Other diseases,No
+Synth_498,ALLVOS,Male,91.18614254233138,No diagnosis,No diagnosis,No
+Synth_499,ALLVOS,Male,63.99479870814309,Other,Other diseases,No
+Synth_500,ALLVOS,Male,51.83587740323321,Other,Other diseases,No
+Synth_501,ALLVOS,Female,56.6952344703606,Cancer,Cancer,Yes
+Synth_502,ALLVOS,Female,71.56927111637492,No diagnosis,No diagnosis,No
+Synth_503,ALLVOS,Female,63.825781954463196,Other,Other diseases,No
+Synth_504,ALLVOS,Female,62.274998946441485,Inflammatory,Other diseases,No
+Synth_505,ALLVOS,Male,52.98611397036595,Other,Other diseases,No
+Synth_506,ALLVOS,Male,66.9267745890454,Infectious,Other diseases,No
+Synth_507,ALLVOS,Male,55.54967908601775,Infectious,Other diseases,No
+Synth_508,ALLVOS,Male,41.97119906353883,Cancer,Cancer,Yes
+Synth_509,ALLVOS,Female,61.77241781780216,Other,Other diseases,No
+Synth_510,ALLVOS,Male,81.75059084359425,No diagnosis,No diagnosis,No
+Synth_511,ALLVOS,Female,58.77204792790859,Inflammatory,Other diseases,No
+Synth_512,ALLVOS,Male,76.96784282853399,No diagnosis,No diagnosis,No
+Synth_513,ALLVOS,Female,42.740960547846754,No diagnosis,No diagnosis,No
+Synth_514,ALLVOS,Male,66.76478941578456,Inflammatory,Other diseases,No
+Synth_515,ALLVOS,Female,75.60609872797914,Autoimmune,Other diseases,No
+Synth_516,ALLVOS,Female,72.25000621695209,No diagnosis,No diagnosis,No
+Synth_517,ALLVOS,Female,69.24415095080617,Other,Other diseases,No
+Synth_518,ALLVOS,Male,57.767020928127764,Inflammatory,Other diseases,No
+Synth_519,ALLVOS,Female,54.55325043796515,Cancer,Cancer,Yes
+Synth_520,ALLVOS,Female,51.871123207578584,Other,Other diseases,No
+Synth_521,ALLVOS,Female,69.42822001172806,Cancer,Cancer,Yes
+Synth_522,ALLVOS,Female,53.04983559737299,No diagnosis,No diagnosis,No
+Synth_523,ALLVOS,Male,60.07585759789312,No diagnosis,No diagnosis,No
+Synth_524,ALLVOS,Female,63.68123319292276,No diagnosis,No diagnosis,No
+Synth_525,ALLVOS,Male,95.97225954152285,Other,Other diseases,No
+Synth_526,ALLVOS,Female,57.59412341533236,Inflammatory,Other diseases,No
+Synth_527,ALLVOS,Male,71.2387093288883,No diagnosis,No diagnosis,No
+Synth_528,ALLVOS,Male,68.81797169253598,No diagnosis,No diagnosis,No
+Synth_529,ALLVOS,Male,52.828683066727855,No diagnosis,No diagnosis,No
+Synth_530,ALLVOS,Male,66.52266108947411,Cancer,Cancer,Yes
+Synth_531,ALLVOS,Female,89.83204620797866,Cancer,Cancer,Yes
+Synth_532,ALLVOS,Female,74.56195098590297,Infectious,Other diseases,No
+Synth_533,ALLVOS,Female,68.25320581413328,Cancer,Cancer,Yes
+Synth_534,ALLVOS,Male,61.1224266123271,Autoimmune,Other diseases,No
+Synth_535,ALLVOS,Male,36.0463540722165,Other,Other diseases,No
+Synth_536,ALLVOS,Female,85.01575541644236,Cancer,Cancer,Yes
+Synth_537,ALLVOS,Female,45.158882877994856,Autoimmune,Other diseases,No
+Synth_538,ALLVOS,Female,78.99735024710465,Autoimmune,Other diseases,No
+Synth_539,ALLVOS,Female,96.97548002330775,Inflammatory,Other diseases,No
+Synth_540,ALLVOS,Male,45.416400356810534,Other,Other diseases,No
+Synth_541,ALLVOS,Male,78.41051454030239,No diagnosis,No diagnosis,No
+Synth_542,ALLVOS,Male,63.58735194868955,Other,Other diseases,No
+Synth_543,ALLVOS,Female,43.444282885711274,No diagnosis,No diagnosis,No
+Synth_544,ALLVOS,Female,44.32809994771999,No diagnosis,No diagnosis,No
+Synth_545,ALLVOS,Female,42.99232145077616,Infectious,Other diseases,No
+Synth_546,ALLVOS,Male,59.45540922925776,No diagnosis,No diagnosis,No
+Synth_547,ALLVOS,Male,45.14172960183984,No diagnosis,No diagnosis,No
+Synth_548,ALLVOS,Female,78.19727283085885,No diagnosis,No diagnosis,No
+Synth_549,ALLVOS,Female,99.91257240617203,No diagnosis,No diagnosis,No
+Synth_550,ALLVOS,Male,47.82848015293109,Autoimmune,Other diseases,No
+Synth_551,ALLVOS,Female,79.73223832761808,Infectious,Other diseases,No
+Synth_552,ALLVOS,Male,79.44474033693393,Other,Other diseases,No
+Synth_553,ALLVOS,Female,72.72745047668074,Other,Other diseases,No
+Synth_554,ALLVOS,Female,52.113344745182,No diagnosis,No diagnosis,No
+Synth_555,ALLVOS,Female,65.78234209483296,No diagnosis,No diagnosis,No
+Synth_556,ALLVOS,Male,63.3075234086699,Other,Other diseases,No
+Synth_557,ALLVOS,Female,76.27626484147798,Cancer,Cancer,Yes
+Synth_558,ALLVOS,Female,61.89217038134273,No diagnosis,No diagnosis,No
+Synth_559,ALLVOS,Female,82.64210059946507,Other,Other diseases,No
+Synth_560,ALLVOS,Female,61.85923125279797,No diagnosis,No diagnosis,No
+Synth_561,ALLVOS,Male,83.806726144223,Other,Other diseases,No
+Synth_562,ALLVOS,Female,51.48595642355739,Other,Other diseases,No
+Synth_563,ALLVOS,Female,48.241740976597804,Cancer,Cancer,Yes
+Synth_564,ALLVOS,Male,117.45668496240093,Other,Other diseases,No
+Synth_565,ALLVOS,Female,61.20914135239111,Other,Other diseases,No
+Synth_566,ALLVOS,Female,72.20501659932629,Other,Other diseases,No
+Synth_567,ALLVOS,Female,77.40770774087335,Autoimmune,Other diseases,No
+Synth_568,ALLVOS,Female,60.18006482708158,No diagnosis,No diagnosis,No
+Synth_569,ALLVOS,Female,75.56696177119716,Other,Other diseases,No
+Synth_570,ALLVOS,Male,73.29273949440883,No diagnosis,No diagnosis,No
+Synth_571,ALLVOS,Female,64.30725736064993,Cancer,Cancer,Yes
+Synth_572,ALLVOS,Male,68.62317850039132,No diagnosis,No diagnosis,No
+Synth_573,ALLVOS,Female,67.09531391269456,Infectious,Other diseases,No
+Synth_574,ALLVOS,Male,100.34840249262544,Autoimmune,Other diseases,No
+Synth_575,ALLVOS,Male,56.21963059647433,Cancer,Cancer,Yes
+Synth_576,ALLVOS,Female,50.76601597279616,Cancer,Cancer,Yes
+Synth_577,ALLVOS,Male,68.20023933641907,Other,Other diseases,No
+Synth_578,ALLVOS,Female,72.39343358726097,Other,Other diseases,No
+Synth_579,ALLVOS,Female,74.33159447822234,Infectious,Other diseases,No
+Synth_580,ALLVOS,Male,60.570876158513634,Cancer,Cancer,Yes
+Synth_581,ALLVOS,Male,51.26838508644035,Infectious,Other diseases,No
+Synth_582,ALLVOS,Female,87.0431834631909,No diagnosis,No diagnosis,No
+Synth_583,ALLVOS,Male,62.242587451049545,Cancer,Cancer,Yes
+Synth_584,ALLVOS,Male,54.31016264713304,No diagnosis,No diagnosis,No
+Synth_585,ALLVOS,Female,63.98589218996869,Cancer,Cancer,Yes
+Synth_586,ALLVOS,Male,64.58718996500588,Other,Other diseases,No
+Synth_587,ALLVOS,Male,84.68642706805926,No diagnosis,No diagnosis,No
+Synth_588,ALLVOS,Female,68.92217314983225,Other,Other diseases,No
+Synth_589,ALLVOS,Female,79.21426263304684,Infectious,Other diseases,No
+Synth_590,ALLVOS,Male,59.941545934114885,Infectious,Other diseases,No
+Synth_591,ALLVOS,Male,70.91669522660398,No diagnosis,No diagnosis,No
+Synth_592,ALLVOS,Female,62.626466570043235,No diagnosis,No diagnosis,No
+Synth_593,ALLVOS,Male,69.07357886417435,Inflammatory,Other diseases,No
+Synth_594,ALLVOS,Female,53.85115114478175,Cancer,Cancer,Yes
+Synth_595,ALLVOS,Male,47.46295225793467,Inflammatory,Other diseases,No
+Synth_596,ALLVOS,Female,98.33034594292948,Other,Other diseases,No
+Synth_597,ALLVOS,Male,76.8562749213761,Other,Other diseases,No
+Synth_598,ALLVOS,Male,48.378348577221686,Cancer,Cancer,Yes
+Synth_599,ALLVOS,Female,58.221259348265065,No diagnosis,No diagnosis,No
+Synth_600,ALLVOS,Female,49.39002200448353,Cancer,Cancer,Yes

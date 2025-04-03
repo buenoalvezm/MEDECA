@@ -38,7 +38,7 @@ meta_allvos <- read_csv("synthetic_data/allvos_metadata_synthetic.csv")
 data <- read_csv("synthetic_data/final_olink_data_synthetic.csv")
    ```
 ## Expected Outputs
-The demo runtime on a standard desktop computer is approximately one hour. Outputs include plots and summary files of differential and machine learning results, stored in the results/ and data/processed/ directories.
+The demo runtime on a standard desktop computer is approximately one hour. Outputs include plots and summary files of differential and machine learning results, stored in the `results/` and `data/processed/` directories.
 
 # License
 This project is licensed under the Apache License 2.0. See the LICENSE file for more information.

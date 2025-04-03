@@ -19,16 +19,26 @@ Required hardware includes a computer with R, RStudio, and the necessary package
 Typical installation time on a standard desktop computer is less than 5 minutes.
 
 # Usage
-Run the scripts in the scripts folder for data processing and classification model generation for cancer detection.
-- **01_data_preprocessing.Rmd**: quality control of Olink dataset
-- **02_metadata_preprocessing.Rmd**: format MEDECA (discovery) and ALLVOS (replication) cohort metadata
-- **03_differential_expression.Rmd**: perform differential expression analyses in the discovery and replication cohorts
-- **04_cancer_classification.Rmd**: classification models to predict presence of cancer
-- **05_cancer_type_analyses.Rmd**: investigate specific cancer types 
 
-The expected runtime for the demo on a regular desktop computer is approximately 1 hour.
+## Synthetic Data
+The provided data is synthetic and randomly generated based on the original dataset's age, NPX, and group proportions. It retains some biological differences to ensure the code runs as intended. **No biological conclusions should be drawn from this data**, it is for code evaluation only and should not be used for research purposes.
 
-Expected outputs include plots and files summarizing the differential and machine learning results, which will be stored in the results/ and data/processed/ directories.
+## Running the Scripts
+Scripts `01_data_preprocessing.Rmd` and `02_metadata_preprocessing.Rmd` do not need to be run when testing the code with the provided synthetic data. Instead, start with `03_differential_expression.Rmd` for differential expression analyses, followed by `04_cancer_classification.Rmd` for classification models, and `05_cancer_type_analyses.Rmd` to investigate specific cancer types.
+
+For generating some figures, two external files are required: HPA data, which can be downloaded from proteinatlas.tsv, and pan-cancer markers, available as supplementary data from the publication [Next-generation pan-cancer blood proteome profiling using proximity extension assay](https://doi.org/10.1038/s41467-023-39765-y).
+
+
+## Important Steps
+Ensure the correct data paths are set in the scripts before running them. To test the code with the synthetic datasets, replace paths in scripts with:
+   ```R
+metadata <- read_csv("synthetic_data/combined_metadata_synthetic.csv")
+meta_medeca <- read_csv("synthetic_data/medeca_metadata_synthetic.csv")
+meta_allvos <- read_csv("synthetic_data/allvos_metadata_synthetic.csv")
+data <- read_csv("synthetic_data/final_olink_data_synthetic.csv")
+   ```
+## Expected Outputs
+The demo runtime on a standard desktop computer is approximately one hour. Outputs include plots and summary files of differential and machine learning results, stored in the results/ and data/processed/ directories.
 
 # License
 This project is licensed under the Apache License 2.0. See the LICENSE file for more information.

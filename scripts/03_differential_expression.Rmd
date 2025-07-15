@@ -154,8 +154,137 @@ plot_beeswarm_cohorts(data = data,
                       palette = pal_cancer,
                       proteins = top_proteins)
 
-ggsave(savepath("top_proteins.pdf"), h = 12, w = 5)
+#ggsave(savepath("top_proteins.pdf"), h = 12, w = 5)
 ```
+
+# Logistic regression
+
+```{r}
+proteins <- 
+  data |> 
+  distinct(Assay) |> 
+  pull()
+```
+
+## MEDECA
+
+```{r}
+lr_data_medeca <- 
+  data |> 
+  filter(Sample %in% limma_meta_medeca$Sample) |> 
+  left_join(meta_medeca |> 
+              select(Sample, Age, Sex, Cancer)) |> 
+  mutate(Sex = as.factor(Sex))
+
+res_lr_medeca <- 
+  map_df(proteins, function(protein) {
+    do_lr_protein(data = lr_data_medeca,
+                  protein = protein)
+  }) |> 
+  mutate(p.value.adjusted = p.adjust(p.value, method = "BH")) 
+
+res_lr_medeca_or <- 
+  map_df(proteins, function(protein) {
+    do_lr_protein_or(data = lr_data_medeca,
+                  protein = protein)
+  }) |> 
+  mutate(p.value.adjusted = p.adjust(p.value, method = "BH")) 
+```
+
+
+## ALLVOS
+
+```{r}
+lr_data_allvos <- 
+  data |> 
+  filter(Sample %in% limma_meta_allvos$Sample)|> 
+  left_join(meta_allvos |> 
+              select(Sample, Age, Sex, Cancer)) |> 
+   mutate(Sex = as.factor(Sex))
+
+res_lr_allvos <- 
+  map_df(proteins, function(protein) {
+    do_lr_protein(data = lr_data_allvos,
+                  protein = protein)
+  }) |> 
+  mutate(p.value.adjusted = p.adjust(p.value, method = "BH"))  
+
+res_lr_allvos_or <- 
+  map_df(proteins, function(protein) {
+    do_lr_protein_or(data = lr_data_allvos,
+                  protein = protein)
+  }) |> 
+  mutate(p.value.adjusted = p.adjust(p.value, method = "BH"))  
+```
+
+## Forest plot
+
+```{r}
+data_forest <- 
+  res_lr_medeca |> 
+  filter(term == "NPX") |> 
+  mutate(Cohort = "MEDECA") |> 
+  bind_rows(res_lr_allvos |> 
+              filter(term == "NPX") |> 
+              mutate(Cohort = "ALLVOS")) |> 
+  filter(Assay %in% replicated_proteins$Assay) |> 
+  mutate(Assay= factor(Assay, levels = (replicated_proteins$Assay)),
+         Cohort = factor(Cohort, levels = rev(c("MEDECA", "ALLVOS")))) |> 
+  arrange(Cohort, Assay)
+
+ggforestplot::forestplot(
+  df = data_forest,
+  name = Assay,
+  estimate = estimate,
+  se = std.error,
+  pvalue = p.value,
+  psignif = 0.05,
+  colour = Cohort,
+  xlab = "log(OR)",
+  logodds = TRUE
+) +
+  scale_color_manual(values = c("grey70", "grey40")) +
+  theme(legend.position = "top")
+
+ggsave(savepath("forestplot_lr.pdf"), h = 8, w = 4)
+```
+
+## Prepare file
+
+```{r}
+res_lr_medeca_or |>
+  filter(term == "NPX") |>
+  mutate(Cohort = "MEDECA") |>
+  bind_rows(res_lr_allvos_or |>
+              filter(term == "NPX") |>
+              mutate(Cohort = "ALLVOS")) |>
+  filter(Assay %in% replicated_proteins$Assay) |>
+  mutate(Assay = factor(Assay, levels = (replicated_proteins$Assay)),
+         Cohort = factor(Cohort, levels = (c("MEDECA", "ALLVOS")))) |>
+  arrange(Cohort, Assay) |>
+  select(
+    Cohort,
+    Assay,
+    OR = estimate,
+    std.error,
+    statistic,
+    p.value,
+    p.value.adjusted,
+    conf.low,
+    conf.high
+  ) |>
+  mutate(
+    OR = round(OR, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = sprintf("%.2e", p.value),
+    p.value.adjusted = sprintf("%.2e", p.value.adjusted),
+    conf.low = round(conf.low, 2),
+    conf.high = round(conf.high, 2)
+  ) |>
+  write_csv(savepath("lr_results.csv"))
+```
+
 
 # Functional characterization
 
@@ -188,6 +317,38 @@ de_prots <-
   ylab("") +
   xlab("")
 
+#de_prots <- 
+  res_lr_medeca_or |> 
+  filter(term == "NPX") |> 
+  mutate(Cohort = "MEDECA") |> 
+  bind_rows(res_lr_allvos_or |> 
+              filter(term == "NPX") |> 
+              mutate(Cohort = "ALLVOS")) |> 
+  mutate(Assay= factor(Assay, levels = rev(replicated_proteins$Assay)),
+         Cohort = factor(Cohort, levels = c("MEDECA", "ALLVOS"))) |>
+    filter(!is.na(Assay)) |> 
+  ggplot(aes(x = estimate, y = Assay, color = Cohort)) +
+  geom_point(size = 2.5,                        position = position_dodge(width = 0.3)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0.2,                        position = position_dodge(width = 0.3)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey") +
+  scale_x_log10() +  # log scale for ORs
+  scale_color_manual(values = c("grey40", "grey70")) +
+  labs(x = "Odds Ratio (log scale)") +
+  theme_hpa()
+
+
+
+ #  ggplot(aes(estimate, Assay, color = Cohort)) +
+ #  geom_point() +
+ #  geom_segment(aes(x = conf.low, xend = conf.high)) +
+ # # scale_color_paletteer_c(palette = "ggthemes::Red") +
+ #  theme_hpa(angled = T) +
+ #  theme(axis.ticks.y = element_blank(),
+ #        legend.position = "left") +
+ #  ylab("") +
+ #  xlab("")
+
+
 characterization_prots <- 
   hpa |> 
   filter(Gene %in% replicated_proteins$Assay) |> 
@@ -214,7 +375,8 @@ characterization_prots <-
   xlab("") +
   theme_hpa(angled = T, axis_y = F)
 
-de_prots + characterization_prots
+de_prots + characterization_prots +
+  plot_layout(guides = "collect")
 
 ggsave(savepath("proteins_functional_characterization.pdf"), h = 12, w = 6)
 ```

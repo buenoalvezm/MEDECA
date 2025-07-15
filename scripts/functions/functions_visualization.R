@@ -1,7 +1,7 @@
 #### Title: Functions for data visualization 
 #### Author: María Bueno Álvez
 #### Description: script collecting functions to plot data
-#### Last edited : 12/08/2024
+#### Last edited : 15/07/2025
 
 # Visualization packages
 library(ggrepel)
@@ -9,13 +9,11 @@ library(tidytext)
 library(embed)
 library(ggbeeswarm)
 library(patchwork)
-#library(ggsci)
 library(ggplotify)
 library(pheatmap)
 library(ggridges)
-#library(viridis)
-#library(GGally)
-#library(ggExtra)
+library(ggforestplot)
+
 
 # Function to generate PCA
 do_pca <- function(data,

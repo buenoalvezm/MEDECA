@@ -99,8 +99,47 @@ do_lr_protein <-
       fit(data = data_protein)
     
     # Extract and exponentiate coefficients
+    lr <-
+      tidy(model_fit, conf.int = TRUE) |> 
+      mutate(Assay = protein)
+    
+    return(lr)
+    
+  }
+
+
+do_lr_protein_or <- 
+  function(data,
+           protein) {
+    
+    # Extract data for current protein
+    data_protein <-
+      data |>
+      filter(Assay == protein) |> 
+      mutate(Cancer = factor(Cancer, levels = c("No", "Yes")))
+    
+    
+    # Model specifications
+    model <-
+      logistic_reg(mode = "classification") |> 
+      set_engine("glm")
+    
+    # Define the recipe
+    rec <- recipe(Cancer ~ NPX + Age + Sex, data = data_protein)
+    
+    # Create a workflow
+    wkflow <- workflow() |> 
+      add_model(model)  |> 
+      add_recipe(rec)
+    
+    # Fit the model
+    model_fit <-
+      wkflow  |> 
+      fit(data = data_protein)
+    
+    # Extract and exponentiate coefficients
     odds_ratios <-
-      tidy(model_fit, conf.int = TRUE, exponentiate = TRUE) |>
+      tidy(model_fit, conf.int = TRUE, exponentiate = TRUE) |> 
       mutate(Assay = protein)
     
     return(odds_ratios)
